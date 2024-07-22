@@ -12,20 +12,34 @@ The following commands are supported:
 
 ## Building telco-vecchio package
 
-todo
+So far project targets only routers with a MIPS 24K CPU and a musl-libc installed
+
+Use Rust stable toolchain `1.70.0`, more recent toolchains are not maintained for MIPS architecture
+
+Install target `mips-unknown-linux-musl`
+
+Download `mips-linux-muslsf-cross` toolchain from http://musl.cc/#binaries 
+and configure `<archive root>/bin/mips-linux-muslsf-gcc` as linker for  `mips-unknown-linux-musl` target
+
+build release variant (so that output binaries remains small enough)
+`cargo +1.70.0-x86_64-unknown-linux-gnu build --target mips-unknown-linux-musl --release`
 
 ## Installing telco-vecchio package
 
-todo
 
-## telco-vecchio agent
+disable any sms-processing binary installed on the router, such as smsd or smstool3
 
-Upon installation telco-vecchio package deploys an agent that starts upon system boots.
-The agent monitors incoming SMSs and trigger specific commands based on their content. 
+scp the generated daemon to the router on /usr/bin
+
+
+## telco-vecchio daemon
+
+Upon installation telco-vecchio package deploys a daemon that starts upon system boots.
+The daemon monitors incoming SMSs and trigger specific commands based on their content. 
 
 ### Commands
 
-Here is the list of the commands that can be run by telco-vecchio agent:
+Here is the list of the commands that can be run by telco-vecchio daemon:
 
 #### Getting router's current status
 
@@ -48,7 +62,7 @@ then sends to the sender a new SMS indicating that a reboot is done.
 #### Openning a tunnel with an application running on router's local network
 
 This command is triggered by sending to the router an SMS with the following content: `open-tunnel <application-name>`
-with <application-name> being the name of the application to connect to, as defined in telco-vecchio agent configuration file.
+with <application-name> being the name of the application to connect to, as defined in telco-vecchio daemon configuration file.
 
 The routers sets up a new ssh tunnel with the tunelling service and redirects tunnel's output to the requested application.
 The access url generated for this tunnel is sent to the requesting user in an email.
@@ -70,11 +84,11 @@ Then, a SMS is sent to the requesting user:
 
 ### Configuration
 
-telco-vecchio agent gets configured at launch time by parsing `...` configuration file having the following parameters.
+telco-vecchio daemon gets configured at launch time by parsing `...` configuration file having the following parameters.
 
 #### main parameters
 
-* `users`: list of the remote users allowed to interact with telco-vecchio agent, 
+* `users`: list of the remote users allowed to interact with telco-vecchio daemon, 
 each user is defined with:
 ** a name
 ** a phone number
@@ -82,7 +96,7 @@ each user is defined with:
 Any incoming SMS whose sender phone number does not belong to a user configured in this list is ignored.
 Tunnel access urls, generated upon tunnel opening, are sent to the tunnel requesting user through an email.
 
-* `applications`: list of the applications on hosts of router's local network whose remote access is provided by telco-vecchio agent,
+* `applications`: list of the applications on hosts of router's local network whose remote access is provided by telco-vecchio daemon,
 each service is defined with:
 ** a name
 ** an ip address, the ip address of the host on router's local network

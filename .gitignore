@@ -1,1 +1,5 @@
 admin_info.txt
+.idea
+daemon/target/**
+daemon/.idea
+daemon/Cargo.lock
