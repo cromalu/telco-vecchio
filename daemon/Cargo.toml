@@ -9,6 +9,7 @@ edition = "2021"
 serialport = "4.4.0"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_debug"] }
 env_logger = "0.4"
+regex = "1.10.6"
 
 [profile.release]
 lto = "fat"

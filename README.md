@@ -26,7 +26,6 @@ build release variant (so that output binaries remains small enough)
 
 ## Installing telco-vecchio package
 
-
 disable any sms-processing binary installed on the router, such as smsd or smstool3
 
 scp the generated daemon to the router on /usr/bin
