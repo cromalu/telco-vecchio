@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
+serialport = "4.4.0"
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_debug"] }
+env_logger = "0.4"
 
 [profile.release]
-strip = true
 lto = "fat"
+strip = true
