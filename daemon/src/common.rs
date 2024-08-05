@@ -4,6 +4,7 @@ use crate::common::Error::IoError;
 #[derive(Debug)]
 pub enum Error{
     IoError(std::io::Error),
+    IncomingSmSParsingError,
 }
 
 impl From<io::Error> for Error{

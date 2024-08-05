@@ -3,6 +3,7 @@ use regex::Regex;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::common;
+use crate::common::Error;
 
 const MODEM_DEVICE : &str = "/dev/ttyUSB2";
 
@@ -32,7 +33,7 @@ pub async fn wait_sms() -> common::Result<IncomingSms> {
     let sms_string = read_from_file(&mut device, "+CMT").await?;
     debug!("wait_sms: message received {}",sms_string);
     let re = Regex::new(r#"CMT: "(.+)",,"(.+)"\r\n(.*)\r\n"#).unwrap();
-    let (_, [from,_date, msg]) = re.captures(&sms_string).unwrap().extract();
+    let (_, [from,_date, msg]) = re.captures(&sms_string).ok_or(Error::IncomingSmSParsingError)?.extract();
     Ok(IncomingSms{from:from.to_string(),msg:msg.to_string()})
 }
 
@@ -49,13 +50,13 @@ pub struct OutgoingSms{
     pub msg: String
 }
 
-async fn read_from_file(port: &mut File, expected: &str) -> common::Result<String> {
+async fn read_from_file(file: &mut File, expected: &str) -> common::Result<String> {
     let mut buffer: [u8; 128] = [0; 128];
     loop {
-        if let Ok(len) = port.read(&mut buffer).await {
+        if let Ok(len) = file.read(&mut buffer).await {
             let s = String::from_utf8(buffer[0..len].to_vec());
             if let Ok(value) = s {
-                debug!("listen_on_port : content received: {:?}", value);
+                debug!("read_from_file : content received: {:?}", value);
                 if value.contains(expected) {
                     return Ok(value.to_string());
                 }
