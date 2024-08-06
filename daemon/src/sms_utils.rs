@@ -1,5 +1,5 @@
 use log::debug;
-use regex::Regex;
+use regex_lite::Regex;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::common;
@@ -23,6 +23,9 @@ pub async fn send_sms(sms: &OutgoingSms) -> common::Result<()> {
 
 pub async fn wait_sms() -> common::Result<IncomingSms> {
     let mut device = File::options().write(true).read(true).open(MODEM_DEVICE).await?;
+    debug!("wait_sms: setting text mode");
+    let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
+    let _ = read_from_file(&mut device, "OK").await?;
     debug!("wait_sms: asking for sms forwarding");
     //defines how new messages are indicated
     //first int : defines how notifications are dispatched. Value : 2 -> send notifications to the TE, buffering them and sending them later if they cannot be sent.

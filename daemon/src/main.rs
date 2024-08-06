@@ -2,11 +2,12 @@ mod common;
 mod sms_utils;
 
 use log::info;
+use simple_logger::SimpleLogger;
 use crate::sms_utils::OutgoingSms;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let _ = env_logger::init();
+    SimpleLogger::new().init().unwrap();
     let task = tokio::spawn(async move {
         info!("Waiting for SMS....");
         let res = sms_utils::wait_sms().await;
