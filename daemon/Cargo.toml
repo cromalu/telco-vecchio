@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.39", features = ["rt","fs","io-util","macros","process"] }
+tokio = { version = "1.39", features = ["rt","fs","io-util","macros","process","time"] }
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_debug"] }
 regex-lite = "0.1"
 simple_logger = "5.0"

@@ -90,6 +90,13 @@ UseSTARTTLS=YES
 root:<sender email>:<email provider smtp server:port>
 ```
 
+### Ngrok Account
+
+Setup an account on ngrok website, once created upload router public key on your account. 
+Then, reverse ssh tunnel can be set up with the following command
+```ssh -i /etc/dropbear/dropbear_rsa_host_key -R 0:127.0.0.1:8080 v2@connect.ngrok-agent.com http```
+
+
 scp the generated daemon to the router on /usr/bin
 
 ## telco-vecchio daemon

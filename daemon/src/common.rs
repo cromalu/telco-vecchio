@@ -5,6 +5,7 @@ use crate::common::Error::IoError;
 pub enum Error{
     IoError(std::io::Error),
     IncomingSmSParsingError,
+    SshTunnelUrlParsingError,
     SystemCommandExecutionError,
 }
 

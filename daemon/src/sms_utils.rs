@@ -59,9 +59,11 @@ async fn read_from_file(file: &mut File, expected: &str) -> common::Result<Strin
         if let Ok(len) = file.read(&mut buffer).await {
             let s = String::from_utf8(buffer[0..len].to_vec());
             if let Ok(value) = s {
-                debug!("read_from_file : content received: {:?}", value);
-                if value.contains(expected) {
-                    return Ok(value.to_string());
+                if !value.is_empty(){
+                    debug!("read_from_file : content received: {:?}", value);
+                    if value.contains(expected) {
+                        return Ok(value.to_string());
+                    }
                 }
             }
         }
