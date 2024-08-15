@@ -1,12 +1,10 @@
 use std::net::IpAddr;
 use std::process::Stdio;
-use std::thread::sleep;
 use std::time::Duration;
 use log::{debug, error};
 use regex_lite::Regex;
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
-use tokio::time::error::Elapsed;
 use tokio::time::timeout;
 use crate::common;
 use crate::common::Error;
@@ -66,7 +64,7 @@ pub async fn setup_ssh_tunnel(output_host: &IpAddr, output_port: i32) -> common:
                 }
             }
         },
-    ).await.unwrap_or_else(|e| {
+    ).await.unwrap_or_else(|_| {
         error!("setup_ssh_tunnel: timeout while trying to read tunnel url");
         Err(Error::SshTunnelUrlParsingError)
     })?;

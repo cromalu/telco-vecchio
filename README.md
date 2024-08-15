@@ -128,26 +128,29 @@ then sends to the sender a new SMS indicating that a reboot is done.
 
 #### Openning a tunnel with an application running on router's local network
 
-This command is triggered by sending to the router an SMS with the following content: `open-tunnel <application-name>`
+This command is triggered by sending to the router an SMS with the following content: `open <application-name>`
 with <application-name> being the name of the application to connect to, as defined in telco-vecchio daemon configuration file.
 
 The routers sets up a new ssh tunnel with the tunelling service and redirects tunnel's output to the requested application.
 The access url generated for this tunnel is sent to the requesting user in an email.
 
 Then, a SMS is sent to the requesting user:
-* in case of failure, the SMS details the failure reason
-* in case of success, the SMS contains a tunnel-id, identifying the newly created tunnel 
+
+. in case of failure, the SMS details the failure reason
+
+. in case of success, the SMS contains a tunnel-id, identifying the newly created tunnel 
 
 #### Closing a tunnel with an application running on router's local network
 
-This command is triggered by sending to the router an SMS with the following content: `close-tunnel <tunnel-id>`
+This command is triggered by sending to the router an SMS with the following content: `close <tunnel-id>`
 with <tunnel-id> being the identifier of the tunnel to close.
 
 The routers closes the associated tunnel with the tunelling service, at this point the associated tunnel access url becomes obsolete. 
 
 Then, a SMS is sent to the requesting user:
-* in case of failure, the SMS details the failure reason
-* in case of success, the SMS confirms that tunnel has been closed
+
+. in case of failure, the SMS details the failure reason
+. in case of success, the SMS confirms that tunnel has been closed
 
 ### Configuration
 

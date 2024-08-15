@@ -3,10 +3,13 @@ use crate::common::Error::IoError;
 
 #[derive(Debug)]
 pub enum Error{
-    IoError(std::io::Error),
+    IoError(io::Error),
     IncomingSmSParsingError,
     SshTunnelUrlParsingError,
     SystemCommandExecutionError,
+    ConfigurationParsingError(serde_yaml::Error),
+    SenderNotAllowed(String),
+    InvalidRequestError(String)
 }
 
 impl From<io::Error> for Error{
