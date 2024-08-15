@@ -28,8 +28,69 @@ build release variant (so that output binaries remains small enough)
 
 disable any sms-processing binary installed on the router, such as smsd or smstool3
 
-scp the generated daemon to the router on /usr/bin
+### Smtp client
+Telco-vecchio daemon sends emails relying on a smtp client, pre-installed on host, called ssmtp.
+This binary is configured from the following configuration files:
 
+* /etc/ssmtp/ssmpt.conf:
+```
+#
+# /etc/ssmtp.conf -- a config file for sSMTP sendmail.
+#
+
+# The person who gets all mail for userids < 1000
+# Make this empty to disable rewriting.
+root=<sender email>
+
+# The place where the mail goes. The actual machine name is required
+# no MX records are consulted. Commonly mailhosts are named mail.domain.com
+# The example will fit if you are in domain.com and your mailhub is so named.
+mailhub=<email provider smtp server:port>
+
+# Example for SMTP port number 2525
+# mailhub=mail.your.domain:2525
+# Example for SMTP port number 25 (Standard/RFC)
+# mailhub=mail.your.domain
+# Example for SSL encrypted connection
+# mailhub=mail.your.domain:465
+
+# Where will the mail seem to come from?
+rewriteDomain=
+
+# The full hostname
+hostname=<sender email>
+
+#Login
+AuthUser=<sender login>
+#Password
+AuthPass=<sender password>
+
+
+# Set this to never rewrite the "From:" line (unless not given) and to
+# use that address in the "from line" of the envelope.
+FromLineOverride=YES
+
+# Use SSL/TLS to send secure messages to server.
+#UseTLS=NO
+UseSTARTTLS=YES
+
+# Use SSL/TLS certificate to authenticate against smtp host.
+#UseTLSCert=YES
+
+# Use this RSA certificate.
+#TLSCert=/etc/ssl/certs/ssmtp.pem
+
+# Get enhanced (*really* enhanced) debugging information in the logs
+# If you want to have debugging of the config file parsing, move this option
+# to the top of the config file and uncomment
+#Debug=YES
+```
+* /etc/ssmtp/revaliases
+```
+root:<sender email>:<email provider smtp server:port>
+```
+
+scp the generated daemon to the router on /usr/bin
 
 ## telco-vecchio daemon
 
