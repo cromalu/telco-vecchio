@@ -24,11 +24,19 @@ and configure `<archive root>/bin/mips-linux-muslsf-gcc` as linker for  `mips-un
 build release variant (so that output binaries remains small enough)
 `cargo +1.70.0-x86_64-unknown-linux-gnu build --target mips-unknown-linux-musl --release`
 
-## Installing telco-vecchio package
+## Router administration
+
+### Concurrent package uninstallation
 
 disable any sms-processing binary installed on the router, such as smsd or smstool3
 
-### Smtp client
+### Sim card configuration
+
+In case SIM card is configured with a PIN code, it must be configured in the following configuration file:
+todo
+
+
+### Smtp client configuration
 Telco-vecchio daemon sends emails relying on a smtp client, pre-installed on host, called ssmtp.
 This binary is configured from the following configuration files:
 
@@ -90,12 +98,16 @@ UseSTARTTLS=YES
 root:<sender email>:<email provider smtp server:port>
 ```
 
-### Ngrok Account
+### Ngrok SSH key pair configuration
 
 Setup an account on ngrok website, once created upload router public key on your account. 
-Then, reverse ssh tunnel can be set up with the following command
+A default key pair is defined in the file `/etc/dropbear/dropbear_rsa_host_key`, this file contains both
+public and private key, ensure not to upload the private key.
+
+reverse ssh tunnel can be manually set up with the following command
 ```ssh -i /etc/dropbear/dropbear_rsa_host_key -R 0:127.0.0.1:8080 v2@connect.ngrok-agent.com http```
 
+## Telco-vecchio package installation
 
 scp the generated daemon to the router on /usr/bin
 
