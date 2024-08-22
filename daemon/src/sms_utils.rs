@@ -1,14 +1,19 @@
 use log::debug;
 use regex_lite::Regex;
+use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::common;
 use crate::common::Error;
 
-const MODEM_DEVICE : &str = "/dev/ttyUSB2";
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct SmsConfig {
+    pub modem_device: String,
+}
 
-pub async fn send_sms(sms: &OutgoingSms) -> common::Result<()> {
-    let mut device = File::options().write(true).read(true).open(MODEM_DEVICE).await?;
+
+pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<()> {
+    let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
     debug!("send_sms: setting text mode");
     let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
     let _ = read_from_file(&mut device, "OK").await?;
@@ -21,8 +26,8 @@ pub async fn send_sms(sms: &OutgoingSms) -> common::Result<()> {
     Ok(())
 }
 
-pub async fn wait_sms() -> common::Result<IncomingSms> {
-    let mut device = File::options().write(true).read(true).open(MODEM_DEVICE).await?;
+pub async fn wait_sms(config: &SmsConfig) -> common::Result<IncomingSms> {
+    let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
     debug!("wait_sms: setting text mode");
     let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
     let _ = read_from_file(&mut device, "OK").await?;
@@ -36,21 +41,22 @@ pub async fn wait_sms() -> common::Result<IncomingSms> {
     let sms_string = read_from_file(&mut device, "+CMT").await?;
     debug!("wait_sms: message received {}",sms_string);
     let re = Regex::new(r#"CMT: "(.+)",,"(.+)"\r\n(.*)\r\n"#).unwrap();
-    let (_, [from,_date, msg]) = re.captures(&sms_string).ok_or(Error::IncomingSmSParsingError)?.extract();
-    Ok(IncomingSms{from:from.to_string(),msg:msg.to_string()})
+    let (_, [from, _date, msg]) = re.captures(&sms_string).ok_or(Error::IncomingSmSParsingError)?.extract();
+    Ok(IncomingSms { from: from.to_string(), msg: msg.to_string() })
 }
 
+
 #[derive(Debug)]
-pub struct IncomingSms{
+pub struct IncomingSms {
     pub from: String,
-    pub msg: String
+    pub msg: String,
 }
 
 
 #[derive(Debug)]
-pub struct OutgoingSms{
+pub struct OutgoingSms {
     pub to: String,
-    pub msg: String
+    pub msg: String,
 }
 
 async fn read_from_file(file: &mut File, expected: &str) -> common::Result<String> {
@@ -59,7 +65,7 @@ async fn read_from_file(file: &mut File, expected: &str) -> common::Result<Strin
         if let Ok(len) = file.read(&mut buffer).await {
             let s = String::from_utf8(buffer[0..len].to_vec());
             if let Ok(value) = s {
-                if !value.is_empty(){
+                if !value.is_empty() {
                     debug!("read_from_file : content received: {:?}", value);
                     if value.contains(expected) {
                         return Ok(value.to_string());

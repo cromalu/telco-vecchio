@@ -3,34 +3,38 @@ use std::process::Stdio;
 use std::time::Duration;
 use log::{debug, error};
 use regex_lite::Regex;
+use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 use tokio::process::{Child, Command};
 use tokio::time::timeout;
 use crate::common;
 use crate::common::Error;
 
-const SSH_BINARY_PATH: &str = "ssh";
-
-const SSH_KEY_FILE: &str = "/etc/dropbear/dropbear_rsa_host_key";
-const SSH_CLOUD_SERVICE_USER: &str = "v2";
-const SSH_CLOUD_SERVICE_HOST: &str = "connect.ngrok-agent.com";
 const SSH_CLOUD_SERVICE_ARGS: [&str; 1] = ["http"];
-const SSH_CLOUD_SERVICE_INPUT_PORT: i32 = 0;
-const SSH_TUNNEL_SETUP_MAX_DURATION_SECONDS: u64 = 5;
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct SshConfig{
+    binary_file : String,
+    key_file: String,
+    service_user: String,
+    service_host: String,
+    tunnel_input_port: i32,
+    tunnel_setup_timeout_sec: u64
+}
 
 ///SSH tunneling is done through dropbear pre-installed binary on host,
 ///default keys are configured in /etc/dropbear/
 /// returns the process running the ssh tunnel and the tunnel access url on the cloud service
-pub async fn setup_ssh_tunnel(output_host: &IpAddr, output_port: i32) -> common::Result<(String,Child)> {
-    let mut ssh_process = Command::new(SSH_BINARY_PATH)
+pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_port: i32) -> common::Result<(String,Child)> {
+    let mut ssh_process = Command::new(&config.binary_file)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .arg("-i")
-        .arg(SSH_KEY_FILE)
+        .arg(&config.key_file)
         .arg("-R")
-        .arg(format!("{}:{}:{}", SSH_CLOUD_SERVICE_INPUT_PORT, output_host, output_port))
-        .arg(format!("{}@{}", SSH_CLOUD_SERVICE_USER, SSH_CLOUD_SERVICE_HOST))
+        .arg(format!("{}:{}:{}", &config.tunnel_input_port, output_host, output_port))
+        .arg(format!("{}@{}", &config.service_user, &config.service_host))
         .arg(SSH_CLOUD_SERVICE_ARGS.join(" "))
         .spawn()?;
 
@@ -39,7 +43,7 @@ pub async fn setup_ssh_tunnel(output_host: &IpAddr, output_port: i32) -> common:
     //reading tunnel url from stdout
     let mut stdout = ssh_process.stdout.take().ok_or(common::Error::SystemCommandExecutionError)?;
     let tunnel_url = timeout(
-        Duration::from_secs(SSH_TUNNEL_SETUP_MAX_DURATION_SECONDS),
+        Duration::from_secs(config.tunnel_setup_timeout_sec),
         async {
             loop {
                 let mut buf = vec![0u8; 100];

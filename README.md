@@ -110,6 +110,7 @@ reverse ssh tunnel can be manually set up with the following command
 ## Telco-vecchio package installation
 
 scp the generated daemon to the router on /usr/bin
+edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf
 
 ## telco-vecchio daemon
 

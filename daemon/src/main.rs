@@ -6,16 +6,20 @@ mod user;
 mod application;
 
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr};
+use std::fs::File;
+use std::io::Read;
 use std::sync::Arc;
 use log::{error, info};
+use serde::{Deserialize, Serialize};
 use simple_logger::SimpleLogger;
 use tokio::process::Child;
 use tokio::sync::Mutex;
 use crate::application::Application;
 use crate::common::Error;
-use crate::email_utils::OutgoingEmail;
-use crate::sms_utils::{OutgoingSms};
+use crate::common::Error::ConfigurationParsingError;
+use crate::email_utils::{EmailConfig, OutgoingEmail};
+use crate::sms_utils::{OutgoingSms, SmsConfig};
+use crate::ssh_utils::SshConfig;
 use crate::user::User;
 
 #[tokio::main(flavor = "current_thread")]
@@ -23,19 +27,21 @@ async fn main() {
     SimpleLogger::new().init().unwrap();
     let task = tokio::spawn(async move {
         match init() {
-            Ok((users, applications)) => {
-                let context = Context::new(users, applications);
-                info!("initialisation successful, context: {:?}",context);
+            Ok(configuration) => {
+                info!("initialisation successful, configuration: {:?}",configuration);
+                let configuration_ref: &'static Configuration = Box::leak(Box::new(configuration));
+                let context = Context::new();
                 let shared_context = Arc::new(Mutex::new(context));
                 loop {
                     info!("waiting for SMS....");
-                    match sms_utils::wait_sms().await {
+                    let configuration_ref = configuration_ref.clone();
+                    match sms_utils::wait_sms(&configuration_ref.sms_config).await {
                         Ok(sms) => {
                             // A new task is spawned for each incoming sms.
                             let shared_context = Arc::clone(&shared_context);
-                            let request_task = tokio::spawn( async move {
+                            let request_task = tokio::spawn(async move {
                                 {
-                                    let response = match handle_request(sms.from.as_str(),sms.msg.as_str(),shared_context).await {
+                                    let response = match handle_request(sms.from.as_str(), sms.msg.as_str(), &shared_context, configuration_ref).await {
                                         Ok(message) => {
                                             Some(message)
                                         }
@@ -55,7 +61,8 @@ async fn main() {
 
                                     if let Some(message) = response {
                                         info!("Sending back response");
-                                        match sms_utils::send_sms(&OutgoingSms { to: sms.from.to_string(), msg: message }).await {
+                                        match sms_utils::send_sms(&configuration_ref.sms_config,
+                                                                  &OutgoingSms { to: sms.from.to_string(), msg: message }).await {
                                             Ok(()) => {
                                                 info!("Response sent");
                                             }
@@ -86,61 +93,57 @@ async fn main() {
 
 #[derive(Debug)]
 struct Context {
-    users: Vec<User>,
-    applications: Vec<Application>,
-    processes: HashMap<u32, Child>,
+    running_processes: HashMap<u32, Child>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Configuration {
+    #[serde(rename = "user")]
+    pub users: Vec<User>,
+    #[serde(rename = "application")]
+    pub applications: Vec<Application>,
+
+    pub sms_config: SmsConfig,
+    pub email_config: EmailConfig,
+    pub ssh_config: SshConfig
 }
 
 impl Context {
-    fn new(users: Vec<User>, applications: Vec<Application>) -> Self {
+    fn new() -> Self {
         Self {
-            users,
-            applications,
-            processes: HashMap::new()
+            running_processes: HashMap::new(),
         }
     }
 
     fn store_process(&mut self, process: Child) -> u32 {
-        let idx = self.processes.len() as u32;
-        self.processes.insert(idx, process);
+        let idx = self.running_processes.len() as u32;
+        self.running_processes.insert(idx, process);
         idx
     }
 
     fn get_process(&mut self, idx: u32) -> Option<Child> {
-        self.processes.remove(&idx)
+        self.running_processes.remove(&idx)
     }
 }
 
-fn init() -> common::Result<(Vec<User>, Vec<Application>)> {
-    info!("initializing...");
+fn init() -> common::Result<Configuration> {
+    info!("initialising...");
 
-    let users = vec![User {
-        name: "....".to_string(),
-        phone_number: "....".to_string(),
-        email: "....".to_string(),
-    }];
-    //todo init from serialized config
+    let mut configuration_string = String::new();
+    File::open("/etc/telco-vecchio.conf")?.read_to_string(&mut configuration_string)?;
+    let configuration: Configuration = toml::from_str(&configuration_string).map_err(|e| ConfigurationParsingError(e))?;
 
-    let applications = vec![Application {
-        name: "...".to_string(),
-        host: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        port: 8080,
-    }];
-    //todo init from serialized config
-
-    //todo check provider status : sms/ssh/email
-
-    Ok((users, applications))
+    Ok(configuration)
 }
 
 ///Returns the message to be returned to the request sender as acknowledgement
-async fn handle_request(sender: &str, request: &str, context: Arc<Mutex<Context>>) -> common::Result<String> {
+async fn handle_request(sender: &str, request: &str, context: &Arc<Mutex<Context>>, configuration: &Configuration) -> common::Result<String> {
     info!("handle_request - request received - sender {:?} - request {:?}",sender,request);
 
     let mut context = context.lock().await;
 
     //check if allowed user
-    let user = context.users.iter().filter(|user| { user.phone_number == sender }).next().ok_or_else(|| {
+    let user = configuration.users.iter().filter(|user| { user.phone_number == sender }).next().ok_or_else(|| {
         error!("handle_request - sender is not allowed");
         Error::SenderNotAllowed(sender.to_string())
     })?;
@@ -165,7 +168,7 @@ async fn handle_request(sender: &str, request: &str, context: Arc<Mutex<Context>
             })?;
 
             //resolve application
-            let application = context.applications.iter().filter(|app| { app.name == application_str }).next().ok_or_else(|| {
+            let application = configuration.applications.iter().filter(|app| { app.name == application_str }).next().ok_or_else(|| {
                 error!("handle_request - unknown application");
                 Error::InvalidRequestError(format!("Unknown application: {}", application_str))
             })?;
@@ -175,11 +178,11 @@ async fn handle_request(sender: &str, request: &str, context: Arc<Mutex<Context>
             //todo close tunnel if already existing for this user&application
 
             //open ssh tunnel towards this app
-            let (tunnel_url, tunnel_process) = ssh_utils::setup_ssh_tunnel(&application.host, application.port).await?;
+            let (tunnel_url, tunnel_process) = ssh_utils::setup_ssh_tunnel(&configuration.ssh_config, &application.host_ip, application.port).await?;
             info!("handle_request - tunnel open, url: {}", tunnel_url);
 
             //sending tunnel url to user through email
-            email_utils::send_email(&OutgoingEmail {
+            email_utils::send_email(&configuration.email_config, &OutgoingEmail {
                 to: user.email.clone(),
                 title: "Tunnel URL".to_string(),
                 msg: format!("Hello {} !\nHere is the url to access to {}:\n\n{}\n\nHave a nice day!", user.name, application.name, tunnel_url),

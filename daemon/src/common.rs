@@ -7,7 +7,7 @@ pub enum Error{
     IncomingSmSParsingError,
     SshTunnelUrlParsingError,
     SystemCommandExecutionError,
-    ConfigurationParsingError(serde_yaml::Error),
+    ConfigurationParsingError(toml::de::Error),
     SenderNotAllowed(String),
     InvalidRequestError(String)
 }

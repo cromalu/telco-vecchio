@@ -1,0 +1,36 @@
+## Telco-vecchio agent configuration file
+
+# [[user]] items define the users allowed to interact with telco-vecchio
+# for each item, `name`, `phone_number` and `email` fields are mandatory
+
+#[[user]]
+#name = "..."
+#phone_number = "+..."
+#email = "..."
+
+# [[application]] items define the applications to be tunneled through telco-vecchio
+# for each item, `name`, `host_ip` and `port` fields are mandatory
+
+#[[application]]
+#name = "..."
+#host_ip = "..."
+#port = ...
+
+#
+# Technical configuration
+#
+
+[sms_config]
+modem_device = "/dev/ttyUSB2"
+
+[email_config]
+binary_file = "sendmail"
+sender_alias = "Telco-Vecchio"
+
+[ssh_config]
+binary_file = "ssh"
+key_file = "/etc/dropbear/dropbear_rsa_host_key"
+service_user = "v2"
+service_host = "connect.ngrok-agent.com"
+tunnel_input_port = 0
+tunnel_setup_timeout_sec = 5

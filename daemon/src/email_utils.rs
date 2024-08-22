@@ -1,11 +1,15 @@
 use std::process::Stdio;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use crate::common;
 
-const SEND_MAIL_BINARY_PATH : &str = "sendmail";
-const SENDER_ALIAS : &str = "Telco-Vecchio";
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct EmailConfig {
+    pub binary_file: String,
+    pub sender_alias: String,
+}
 
 #[derive(Debug)]
 pub struct OutgoingEmail {
@@ -16,18 +20,18 @@ pub struct OutgoingEmail {
 
 ///Email sending is done through sendmail pre-installed binary on host,
 /// configured from /etc/ssmtp/ssmpt.conf and /etc/ssmtp/revaliases configuration files
-pub async fn send_email(email: &OutgoingEmail) -> common::Result<()> {
+pub async fn send_email(config: &EmailConfig, email: &OutgoingEmail) -> common::Result<()> {
     let content = format!("Subject: {}\n\n{}", email.title, email.msg);
 
 
-    let mut send_mail_process = Command::new(SEND_MAIL_BINARY_PATH)
+    let mut send_mail_process = Command::new(&config.binary_file)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .arg("-v")
         .arg(&email.to)
         .arg("-F")
-        .arg(SENDER_ALIAS)
+        .arg(&config.sender_alias)
         .spawn()?;
     let mut stdin = send_mail_process.stdin.take().ok_or(common::Error::SystemCommandExecutionError)?;
     let mut stderr = send_mail_process.stderr.take().ok_or(common::Error::SystemCommandExecutionError)?;
