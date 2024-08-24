@@ -3,7 +3,8 @@
 ## Introduction
 
 telco-vecchio is a package for open-wrt distributions allowing to trigger remote commands on 
-a 4G router through SMSs. 
+a GL-iNet GL-X300BC4 Collie 4G router through SMSs. 
+
 The following commands are supported:
 * getting router's current status
 * rebooting router
@@ -12,7 +13,7 @@ The following commands are supported:
 
 ## Building telco-vecchio package
 
-So far project targets only routers with a MIPS 24K CPU and a musl-libc installed
+GL-X300BC4 Collie 4G router is set with a MIPS 24K CPU and a has a musl-libc installed
 
 Use Rust stable toolchain `1.70.0`, more recent toolchains are not maintained for MIPS architecture
 
@@ -24,11 +25,18 @@ and configure `<archive root>/bin/mips-linux-muslsf-gcc` as linker for  `mips-un
 build release variant (so that output binaries remains small enough)
 `cargo +1.70.0-x86_64-unknown-linux-gnu build --target mips-unknown-linux-musl --release`
 
-## Router administration
+## Administration
 
-### Concurrent package uninstallation
+### Router Setup
 
-disable any sms-processing binary installed on the router, such as smsd or smstool3
+Install the latest firmware build for the router from GL-iNet website.
+
+Disable services that might disturb telco-vecchio access to router's modem:
+* smsd
+* smstool3
+* carrier-monitor
+
+Disable cron jobs invoking `modem.sh`, configured in `/etc/gl_crontabs/` that disturb SMS reception
 
 ### Sim card configuration
 
@@ -109,8 +117,8 @@ reverse ssh tunnel can be manually set up with the following command
 
 ## Telco-vecchio package installation
 
-scp the generated daemon to the router on /usr/bin
-edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf
+Scp the generated daemon to the router on /usr/bin.
+Edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf, configuration format is described later in this doc.
 
 ## telco-vecchio daemon
 
@@ -169,27 +177,51 @@ Then, a SMS is sent to the requesting user:
 
 telco-vecchio daemon gets configured at launch time by parsing `...` configuration file having the following parameters.
 
-#### main parameters
+#### functional parameters
 
 * `users`: list of the remote users allowed to interact with telco-vecchio daemon, 
 each user is defined with:
-** a name
-** a phone number
-** an email address
+    * a name
+    * a phone number
+    * an email address
 Any incoming SMS whose sender phone number does not belong to a user configured in this list is ignored.
 Tunnel access urls, generated upon tunnel opening, are sent to the tunnel requesting user through an email.
 
+A new user is added by adding the following block to the configuration file:
+
+```
+[[user]]
+name = "..."
+phone_number = "+..."
+email = "..."
+```
+
 * `applications`: list of the applications on hosts of router's local network whose remote access is provided by telco-vecchio daemon,
 each service is defined with:
-** a name
-** an ip address, the ip address of the host on router's local network
-** a port, the port of the host on which the application is deployed 
+    * a name
+    * an ip address, the ip address of the host on router's local network
+    * a port, the port of the host on which the application is deployed 
 
-#### ssh tunnels parameters
+A new application is added by adding the following block to the configuration file:
 
-* `tunnel-lifetime`: defines how long a tunnel can remain open, in seconds
+```
+[[application]]
+name = "..."
+host_ip = "..."
+port = ...
+```
 
-* `tunnelling-service-url`: the url to reach out the tunnelling service 
+#### technical parameters
+
+##### sms parameters
+
+todo
+
+##### email parameters
+
+todo
+
+##### ssh tunnels parameters
 
 todo
 
