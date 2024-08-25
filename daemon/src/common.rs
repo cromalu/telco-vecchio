@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::io;
 use serde::{Deserialize, Serialize};
+use surge_ping::SurgeError;
 use tokio::process::Child;
 use crate::application::Application;
-use crate::common::Error::IoError;
+use crate::common::Error::{IoError, PingError};
 use crate::email_utils::EmailConfig;
+use crate::init::InitializationErrorKind;
 use crate::sms_utils::SmsConfig;
 use crate::ssh_utils::SshConfig;
 use crate::user::User;
@@ -13,11 +15,15 @@ use crate::user::User;
 pub enum Error{
     IoError(io::Error),
     IncomingSmSParsingError,
-    SshTunnelUrlParsingError,
     SystemCommandExecutionError,
+    SshTunnelUrlParsingError,
     ConfigurationParsingError(toml::de::Error),
+    QmiResponseParsingError(String),
     SenderNotAllowed(String),
-    InvalidRequestError(String)
+    InvalidRequestError(String),
+    DomainNameResolutionError,
+    PingError(SurgeError),
+    InitialisationFailed(InitializationErrorKind)
 }
 
 impl From<io::Error> for Error{
@@ -26,6 +32,11 @@ impl From<io::Error> for Error{
     }
 }
 
+impl From<SurgeError> for Error{
+    fn from(value: SurgeError) -> Self {
+        PingError(value)
+    }
+}
 
 pub type Result<T> = std::result::Result<T,Error>;
 

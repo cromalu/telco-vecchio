@@ -14,12 +14,12 @@ const SSH_CLOUD_SERVICE_ARGS: [&str; 1] = ["http"];
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct SshConfig{
-    binary_file : String,
-    key_file: String,
-    service_user: String,
-    service_host: String,
-    tunnel_input_port: i32,
-    tunnel_setup_timeout_sec: u64
+    pub binary_file : String,
+    pub key_file: String,
+    pub service_user: String,
+    pub service_host: String,
+    pub tunnel_input_port: i32,
+    pub tunnel_setup_timeout_sec: u64
 }
 
 ///SSH tunneling is done through dropbear pre-installed binary on host,
@@ -75,3 +75,4 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
 
     Ok((tunnel_url,ssh_process))
 }
+

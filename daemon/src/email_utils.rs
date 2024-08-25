@@ -9,6 +9,7 @@ use crate::common;
 pub struct EmailConfig {
     pub binary_file: String,
     pub sender_alias: String,
+    pub server_domain: String,
 }
 
 #[derive(Debug)]

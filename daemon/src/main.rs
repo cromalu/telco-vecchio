@@ -5,22 +5,22 @@ mod ssh_utils;
 mod user;
 mod application;
 mod request;
+mod init;
+mod status;
 
-use std::fs::File;
-use std::io::Read;
 use std::sync::Arc;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use tokio::sync::Mutex;
 use crate::common::{Configuration, Context, Error};
-use crate::common::Error::ConfigurationParsingError;
+use crate::init::init;
 use crate::sms_utils::OutgoingSms;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     SimpleLogger::new().init().unwrap();
     let task = tokio::spawn(async move {
-        match init() {
+        match init().await {
             Ok(configuration) => {
                 info!("initialisation successful, configuration: {:?}",configuration);
                 let configuration_ref: &'static Configuration = Box::leak(Box::new(configuration));
@@ -86,14 +86,5 @@ async fn main() {
 }
 
 
-fn init() -> common::Result<Configuration> {
-    info!("initialising...");
-
-    let mut configuration_string = String::new();
-    File::open("/etc/telco-vecchio.conf")?.read_to_string(&mut configuration_string)?;
-    let configuration: Configuration = toml::from_str(&configuration_string).map_err(|e| ConfigurationParsingError(e))?;
-
-    Ok(configuration)
-}
 
 
