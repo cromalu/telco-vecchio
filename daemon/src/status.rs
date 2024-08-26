@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::process::Stdio;
 use log::{debug, error, info};
@@ -13,6 +14,7 @@ const QMI_BINARY: &str = "uqmi";
 const QMI_DEVICE: &str = "/dev/cdc-wdm0";
 const PINGABLE_HOST: &str = "8.8.8.8";
 
+#[derive(Debug)]
 pub struct Status {
     pub device_status: DeviceStatus,
     pub email_service_status: ServiceStatus,
@@ -20,18 +22,26 @@ pub struct Status {
     pub applications_status: HashMap<String, ServiceStatus>,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ServiceStatus {
     Reachable,
     Unreachable,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DeviceStatus {
     SimLocked,
     LteNotConnected,
     InternetUnreachable,
     Ready,
+}
+
+#[derive(Debug)]
+pub enum InvalidStatusKind {
+    InvalidDeviceStatus(DeviceStatus),
+    EmailServiceUnreachable,
+    SshTunnelServiceUnreachable,
+    ApplicationNotAvailable(String),
 }
 
 pub async fn get_status(configuration: &Configuration) -> common::Result<Status> {
@@ -81,7 +91,7 @@ pub async fn get_status(configuration: &Configuration) -> common::Result<Status>
         let _ = applications_status.insert(application.name.clone(), status);
     }
 
-    Ok(Status{
+    Ok(Status {
         device_status,
         email_service_status,
         ssh_tunnel_service_status,
@@ -90,13 +100,12 @@ pub async fn get_status(configuration: &Configuration) -> common::Result<Status>
 }
 
 
-
 async fn ping_domain(domain: &String) -> common::Result<()> {
     debug!("ping_domain: pinging {} ...", domain);
     let dns_result = dns_lookup::lookup_host(&domain)?;
     let ip = dns_result.into_iter().next().ok_or(common::Error::DomainNameResolutionError)?;
     debug!("ping_domain: server ip address resolved {:?}", ip);
-    let (_, duration) = surge_ping::ping(ip,&[0; 8]).await?;
+    let (_, duration) = surge_ping::ping(ip, &[0; 8]).await?;
     debug!("ping_domain: domain ping ok - duration: {:?}",duration);
     Ok(())
 }
@@ -188,4 +197,40 @@ async fn qmi_command(command: &str) -> common::Result<String> {
     let output_message = String::from_utf8(output.stdout).map_err(|_| { common::Error::SystemCommandExecutionError })?;
     debug!("qmi_command: command output message:\n {:?}", output_message);
     Ok(output_message)
+}
+
+
+impl Display for Status {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Device status: {}\n", self.device_status.to_string())?;
+        write!(f, "Email service status: {}\n", self.email_service_status.to_string())?;
+        write!(f, "Ssh tunnel service status: {}\n", self.ssh_tunnel_service_status.to_string())?;
+        write!(f, "Applications:\n")?;
+        for app in self.applications_status.iter() {
+            write!(f, "* {} - status: {}\n", app.0, app.1.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for DeviceStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            DeviceStatus::SimLocked => { "SIM Card Locked" }
+            DeviceStatus::LteNotConnected => { "Cannot connect to LTE network" }
+            DeviceStatus::InternetUnreachable => { "Cannot connect to Internet" }
+            DeviceStatus::Ready => { "Ready" }
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl Display for ServiceStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Reachable => {"Available"}
+            Unreachable => {"Not available"}
+        };
+        write!(f, "{}", str)
+    }
 }

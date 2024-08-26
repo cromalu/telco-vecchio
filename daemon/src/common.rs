@@ -6,9 +6,9 @@ use tokio::process::Child;
 use crate::application::Application;
 use crate::common::Error::{IoError, PingError};
 use crate::email_utils::EmailConfig;
-use crate::init::InitializationErrorKind;
 use crate::sms_utils::SmsConfig;
 use crate::ssh_utils::SshConfig;
+use crate::status::{InvalidStatusKind, Status};
 use crate::user::User;
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ pub enum Error{
     InvalidRequestError(String),
     DomainNameResolutionError,
     PingError(SurgeError),
-    InitialisationFailed(InitializationErrorKind)
+    InvalidStatus(InvalidStatusKind)
 }
 
 impl From<io::Error> for Error{
@@ -44,7 +44,9 @@ pub type Result<T> = std::result::Result<T,Error>;
 
 #[derive(Debug)]
 pub struct Context {
-    running_processes: HashMap<u32, Child>,
+    pub configuration: Configuration,
+    pub status: Status,
+    pub running_processes: HashMap<u32, Child>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -60,11 +62,18 @@ pub struct Configuration {
 }
 
 impl Context {
-    pub fn new() -> Self {
+    pub fn new(configuration: Configuration, status: Status) -> Self {
         Self {
+            configuration,
+            status,
             running_processes: HashMap::new(),
         }
     }
+
+    pub fn update_status(&mut self, status: Status){
+        self.status = status;
+    }
+
 
     pub fn store_process(&mut self, process: Child) -> u32 {
         let idx = self.running_processes.len() as u32;
