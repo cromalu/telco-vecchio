@@ -18,6 +18,7 @@ pub enum Error{
     IncomingSmSParsingError,
     SystemCommandExecutionError,
     SshTunnelUrlParsingError,
+    SshTunnelUrlSetupTimeout,
     ConfigurationParsingError(toml::de::Error),
     QmiResponseParsingError(String),
     SenderNotAllowed(String),
