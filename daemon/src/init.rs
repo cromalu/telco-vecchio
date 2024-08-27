@@ -2,13 +2,19 @@ use std::fs::File;
 use std::io::Read;
 use std::time::Duration;
 use log::{error, info};
+use serde::{Deserialize, Serialize};
 use crate::{common, status};
 use crate::common::{Configuration, Context};
 use crate::common::Error::ConfigurationParsingError;
 use crate::status::DeviceStatus;
 
 const CONFIGURATION_FILE: &str = "/etc/telco-vecchio.conf";
-const INITIAL_STATUS_RESOLUTION_POLLING_PERIOD_SECS: u64 = 10;
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct InitConfig {
+    pub init_status_refresh_period_seconds: u64,
+    pub init_status_refresh_max_retry: u32,
+}
 
 pub async fn init() -> common::Result<Context> {
     info!("init - starting");
@@ -22,7 +28,7 @@ pub async fn init() -> common::Result<Context> {
     info!("init - configuration read properly");
 
     //get device current status
-    let mut sleep_loop_counter = 12;
+    let mut sleep_loop_counter = configuration.init_config.init_status_refresh_max_retry;
     let mut sim_unlock_performed = false;
     let mut status = status::get_status(&configuration).await?;
 
@@ -43,9 +49,9 @@ pub async fn init() -> common::Result<Context> {
             DeviceStatus::LteNotConnected | DeviceStatus::InternetUnreachable => {
                 //wait for a while and retry
                 if sleep_loop_counter > 0 {
-                    info!("init - device not yet connected to network, retrying after {} seconds",INITIAL_STATUS_RESOLUTION_POLLING_PERIOD_SECS);
+                    info!("init - device not yet connected to network, retrying after {} seconds",configuration.init_config.init_status_refresh_period_seconds);
                     sleep_loop_counter = sleep_loop_counter - 1;
-                    tokio::time::sleep(Duration::from_secs(INITIAL_STATUS_RESOLUTION_POLLING_PERIOD_SECS)).await;
+                    tokio::time::sleep(Duration::from_secs(configuration.init_config.init_status_refresh_period_seconds)).await;
                     status = status::get_status(&configuration).await?;
                 } else {
                     error!("init - device still not connected to network after retries");

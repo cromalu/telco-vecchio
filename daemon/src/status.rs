@@ -3,16 +3,19 @@ use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::process::Stdio;
 use log::{debug, error, info};
+use serde::{Deserialize, Serialize};
 use tinyjson::JsonValue;
 use tokio::process::Command;
 use crate::common;
 use crate::common::Configuration;
 use crate::common::Error::QmiResponseParsingError;
 use crate::status::ServiceStatus::{Reachable, Unreachable};
-
-const QMI_BINARY: &str = "uqmi";
-const QMI_DEVICE: &str = "/dev/cdc-wdm0";
-const PINGABLE_HOST: &str = "8.8.8.8";
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct MonitoringConfig {
+    pub qmi_modem_device: String,
+    pub qmi_binary_file: String,
+    pub internet_host: IpAddr,
+}
 
 #[derive(Debug)]
 pub struct Status {
@@ -47,7 +50,7 @@ pub enum InvalidStatusKind {
 pub async fn get_status(configuration: &Configuration) -> common::Result<Status> {
 
     //device internal status
-    let device_status = get_device_status().await?;
+    let device_status = get_device_status(configuration).await?;
     info!("get_status: device status: {:?}",device_status);
 
     //get external services status
@@ -111,18 +114,22 @@ async fn ping_domain(domain: &String) -> common::Result<()> {
 }
 
 
-async fn get_device_status() -> common::Result<DeviceStatus> {
+async fn get_device_status(configuration: &Configuration) -> common::Result<DeviceStatus> {
+    let qmi_provider = QmiProvider{
+        qmi_binary: configuration.monitoring_config.qmi_binary_file.to_string(),
+        qmi_device: configuration.monitoring_config.qmi_modem_device.to_string()
+    };
     info!("get_device_status - starting");
-    if is_sim_locked().await? {
+    if qmi_provider.is_sim_locked().await? {
         return Ok(DeviceStatus::SimLocked);
     }
     info!("get_device_status - sim card unlocked");
-    if !is_connected_to_lte().await? {
+    if !qmi_provider.is_connected_to_lte().await? {
         return Ok(DeviceStatus::LteNotConnected);
     }
     info!("get_device_status - device connected to lte");
     //check internet access
-    if !is_connected_to_internet().await {
+    if !qmi_provider.is_connected_to_internet(configuration.monitoring_config.internet_host).await {
         return Ok(DeviceStatus::InternetUnreachable);
     }
     info!("get_device_status - device connected to internet");
@@ -130,73 +137,82 @@ async fn get_device_status() -> common::Result<DeviceStatus> {
 }
 
 
-async fn is_connected_to_internet() -> bool {
-    match surge_ping::ping(IpAddr::V4(PINGABLE_HOST.parse().unwrap()), &[0; 8]).await {
-        Ok((_, duration)) => {
-            debug!("is_connected_to_internet - internet ping ok - duration: {:?}",duration);
-            true
-        }
-        Err(e) => {
-            error!("is_connected_to_internet - cannot ping internet: {:?}",e);
-            false
+struct QmiProvider{
+    pub qmi_binary: String,
+    pub qmi_device: String
+}
+
+impl QmiProvider{
+
+    async fn is_connected_to_internet(&self, ip_addr: IpAddr) -> bool {
+        match surge_ping::ping(ip_addr, &[0; 8]).await {
+            Ok((_, duration)) => {
+                debug!("is_connected_to_internet - internet ping ok - duration: {:?}",duration);
+                true
+            }
+            Err(e) => {
+                error!("is_connected_to_internet - cannot ping internet: {:?}",e);
+                false
+            }
         }
     }
-}
 
-async fn is_connected_to_lte() -> common::Result<bool> {
-    let system_info_string = qmi_command("--get-system-info").await?;
-    let system_info_json: JsonValue = system_info_string.parse().map_err(|_| { QmiResponseParsingError("cannot parse --get-system-info response into json".to_string()) })?;
-    let service_status: &String = system_info_json["lte"]["service_status"].get().ok_or(QmiResponseParsingError("cannot read lte service status from system info".to_string()))?;
-    debug!("is_connected_to_lte - service status: {}",service_status);
-    let is_connected = match service_status.as_str() {
-        "available" => {
-            true
-        }
-        _ => {
-            false
-        }
-    };
-    Ok(is_connected)
-}
-
-
-//todo fn unlock_sim_card() {}
-
-async fn is_sim_locked() -> common::Result<bool> {
-    let sim_state_string = qmi_command("--uim-get-sim-state").await?;
-    let sim_state_json: JsonValue = sim_state_string.parse().map_err(|_| { QmiResponseParsingError("cannot parse --uim-get-sim-state response into json".to_string()) })?;
-    let pin_status: &String = sim_state_json["pin1_status"].get().ok_or(QmiResponseParsingError("cannot read pin1_status from sim state info".to_string()))?;
-    debug!("is_sim_locked - pin status: {}",pin_status);
-    let is_locked = match pin_status.as_str() {
-        "disabled" => {
-            debug!("is_sim_locked - no pin set");
-            false
-        }
-        //to do
-        _ => false
-    };
-    Ok(is_locked)
-}
+    async fn is_connected_to_lte(&self) -> common::Result<bool> {
+        let system_info_string = self.qmi_command("--get-system-info").await?;
+        let system_info_json: JsonValue = system_info_string.parse().map_err(|_| { QmiResponseParsingError("cannot parse --get-system-info response into json".to_string()) })?;
+        let service_status: &String = system_info_json["lte"]["service_status"].get().ok_or(QmiResponseParsingError("cannot read lte service status from system info".to_string()))?;
+        debug!("is_connected_to_lte - service status: {}",service_status);
+        let is_connected = match service_status.as_str() {
+            "available" => {
+                true
+            }
+            _ => {
+                false
+            }
+        };
+        Ok(is_connected)
+    }
 
 
-///Qualcomm MSM Interface allows router management
-async fn qmi_command(command: &str) -> common::Result<String> {
-    debug!("qmi_command: running command: {:?}", command);
+    //todo fn unlock_sim_card() {}
 
-    let process = Command::new(QMI_BINARY)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .arg("-d")
-        .arg(QMI_DEVICE)
-        .arg(command)
-        .spawn()?;
-    let output = process.wait_with_output().await?;
+    async fn is_sim_locked(&self) -> common::Result<bool> {
+        let sim_state_string = self.qmi_command("--uim-get-sim-state").await?;
+        let sim_state_json: JsonValue = sim_state_string.parse().map_err(|_| { QmiResponseParsingError("cannot parse --uim-get-sim-state response into json".to_string()) })?;
+        let pin_status: &String = sim_state_json["pin1_status"].get().ok_or(QmiResponseParsingError("cannot read pin1_status from sim state info".to_string()))?;
+        debug!("is_sim_locked - pin status: {}",pin_status);
+        let is_locked = match pin_status.as_str() {
+            "disabled" => {
+                debug!("is_sim_locked - no pin set");
+                false
+            }
+            //to do
+            _ => false
+        };
+        Ok(is_locked)
+    }
 
-    debug!("qmi_command: command status: {:?}", output.status.code());
-    output.status.success().then(|| ()).ok_or(common::Error::SystemCommandExecutionError)?;
-    let output_message = String::from_utf8(output.stdout).map_err(|_| { common::Error::SystemCommandExecutionError })?;
-    debug!("qmi_command: command output message:\n {:?}", output_message);
-    Ok(output_message)
+
+    ///Qualcomm MSM Interface allows router management
+    async fn qmi_command(&self, command: &str) -> common::Result<String> {
+        debug!("qmi_command: running command: {:?}", command);
+
+        let process = Command::new(&self.qmi_binary)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .arg("-d")
+            .arg(&self.qmi_device)
+            .arg(command)
+            .spawn()?;
+        let output = process.wait_with_output().await?;
+
+        debug!("qmi_command: command status: {:?}", output.status.code());
+        output.status.success().then(|| ()).ok_or(common::Error::SystemCommandExecutionError)?;
+        let output_message = String::from_utf8(output.stdout).map_err(|_| { common::Error::SystemCommandExecutionError })?;
+        debug!("qmi_command: command output message:\n {:?}", output_message);
+        Ok(output_message)
+    }
+
 }
 
 
@@ -207,7 +223,7 @@ impl Display for Status {
         write!(f, "Ssh tunnel service status: {}\n", self.ssh_tunnel_service_status.to_string())?;
         write!(f, "Applications:\n")?;
         for app in self.applications_status.iter() {
-            write!(f, "* {} - status: {}\n", app.0, app.1.to_string())?;
+            write!(f, "* {} - status: {}", app.0, app.1.to_string())?;
         }
         Ok(())
     }

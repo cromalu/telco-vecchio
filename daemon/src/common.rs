@@ -6,9 +6,10 @@ use tokio::process::Child;
 use crate::application::Application;
 use crate::common::Error::{IoError, PingError};
 use crate::email_utils::EmailConfig;
+use crate::init::InitConfig;
 use crate::sms_utils::SmsConfig;
 use crate::ssh_utils::SshConfig;
-use crate::status::{InvalidStatusKind, Status};
+use crate::status::{InvalidStatusKind, MonitoringConfig, Status};
 use crate::user::User;
 
 #[derive(Debug)]
@@ -58,7 +59,10 @@ pub struct Configuration {
 
     pub sms_config: SmsConfig,
     pub email_config: EmailConfig,
-    pub ssh_config: SshConfig
+    pub ssh_config: SshConfig,
+
+    pub init_config: InitConfig,
+    pub monitoring_config: MonitoringConfig,
 }
 
 impl Context {

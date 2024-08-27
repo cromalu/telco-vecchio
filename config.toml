@@ -26,6 +26,7 @@ modem_device = "/dev/ttyUSB2"
 [email_config]
 binary_file = "sendmail"
 sender_alias = "Telco-Vecchio"
+server_domain = ...
 
 [ssh_config]
 binary_file = "ssh"
@@ -34,3 +35,12 @@ service_user = "v2"
 service_host = "connect.ngrok-agent.com"
 tunnel_input_port = 0
 tunnel_setup_timeout_sec = 5
+
+[init_config]
+init_status_refresh_period_seconds = 10
+init_status_refresh_max_retry = 10
+
+[monitoring_config]
+qmi_modem_device = "/dev/cdc-wdm0"
+qmi_binary_file = "uqmi"
+internet_host = "8.8.8.8"
