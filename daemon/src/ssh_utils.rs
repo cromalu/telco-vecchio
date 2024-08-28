@@ -10,6 +10,7 @@ use tokio::process::{Child, Command};
 use tokio::time::timeout;
 use crate::common;
 use crate::common::Error;
+use crate::common::Error::SshTunnelServiceError;
 
 const SSH_CLOUD_SERVICE_ARGS: [&str; 1] = ["http"];
 
@@ -47,6 +48,8 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
         Duration::from_secs(config.tunnel_setup_timeout_sec),
         async {
             let mut cursor = Cursor::new(vec![0u8; 300]);
+            let regexp_success = Regex::new(r#"Forwarding  (.+)\n"#).unwrap();
+            let regexp_error = Regex::new(r#"(ERR_[a-zA-Z0-9_]+)"#).unwrap();
             loop {
                 let mut chunk_buf = vec![0u8; 30];
                 debug!("setup_ssh_tunnel: waiting for service response");
@@ -56,12 +59,15 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
                     let _ = cursor.write(&chunk_buf[0..len]).await?;
                     if let Ok(s) = String::from_utf8(cursor.get_ref().clone()) {
                         debug!("setup_ssh_tunnel: concatenated process output: {}",s);
-                        let re = Regex::new(r#"Forwarding  (.+)\n"#).unwrap();
-                        if let Some(captures) = re.captures(&s) {
+                        if let Some(captures) = regexp_success.captures(&s) {
                             let [url] = captures.extract().1.map(|s| s.to_string());
                             debug!("setup_ssh_tunnel: url read: {}",url);
                             break Ok(url);
-                        } else {
+                        } else if let Some(captures) = regexp_error.captures(&s) {
+                            let [error] = captures.extract().1.map(|s| s.to_string());
+                            debug!("setup_ssh_tunnel: error: {}",error);
+                            break Err(SshTunnelServiceError(error));
+                        }else{
                             debug!("setup_ssh_tunnel: url not yet read");
                         }
                     } else {
@@ -70,7 +76,7 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
                     }
                 } else {
                     error!("setup_ssh_tunnel: cannot read process output");
-                    break Err(Error::SshTunnelUrlParsingError);
+                    break Err(Error::SystemCommandExecutionError);
                 }
             }
         },
