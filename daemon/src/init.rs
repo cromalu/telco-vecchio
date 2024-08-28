@@ -3,7 +3,7 @@ use std::io::Read;
 use std::time::Duration;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use crate::{common, status};
+use crate::{common, sms_utils, status};
 use crate::common::{Configuration, Context};
 use crate::common::Error::ConfigurationParsingError;
 use crate::status::DeviceStatus;
@@ -60,6 +60,7 @@ pub async fn init() -> common::Result<Context> {
             }
             DeviceStatus::Ready => {
                 info!("init - device is ready");
+                sms_utils::init(&configuration.sms_config).await?;
                 break;
             }
         }

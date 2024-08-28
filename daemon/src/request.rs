@@ -131,7 +131,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &Arc<Mutex<Con
         }
 
         _ => {
-            error!("handle_request - unknown command");
+            error!("handle_request - unknown command: {:?}", command);
             Err(Error::InvalidRequestError(format!("Unknown command: {}", command)))
         }
     }

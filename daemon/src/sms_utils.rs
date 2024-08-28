@@ -11,12 +11,22 @@ pub struct SmsConfig {
     pub modem_device: String,
 }
 
+pub async fn init(config: &SmsConfig) -> common::Result<()> {
+    let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
+    debug!("init: setting text mode");
+    let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
+    let _ = read_from_file(&mut device, "OK").await?;
+    debug!("init: asking for sms forwarding");
+    //defines how new messages are indicated
+    //first int : defines how notifications are dispatched. Value : 2 -> send notifications to the TE, buffering them and sending them later if they cannot be sent.
+    //second int : defines how sms are stored. Value : 2 -> sms not stored on modem, simply forwarded on serial port
+    let _ = device.write("AT+CNMI=2,2\r".as_bytes()).await?;
+    let _ = read_from_file(&mut device, "OK").await?;
+    Ok(())
+}
 
 pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<()> {
     let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
-    debug!("send_sms: setting text mode");
-    let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
-    let _ = read_from_file(&mut device, "OK").await?;
     debug!("send_sms: setting destination number");
     let _ = device.write(format!("AT+CMGS=\"{}\"\r", sms.to).as_bytes()).await?;
     let _ = read_from_file(&mut device, ">").await?;
@@ -26,22 +36,15 @@ pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<(
     Ok(())
 }
 
-pub async fn wait_sms(config: &SmsConfig) -> common::Result<IncomingSms> {
+pub async fn
+wait_sms(config: &SmsConfig) -> common::Result<IncomingSms> {
     let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
-    debug!("wait_sms: setting text mode");
-    let _ = device.write("AT+CMGF=1\r".as_bytes()).await?;
-    let _ = read_from_file(&mut device, "OK").await?;
-    debug!("wait_sms: asking for sms forwarding");
-    //defines how new messages are indicated
-    //first int : defines how notifications are dispatched. Value : 2 -> send notifications to the TE, buffering them and sending them later if they cannot be sent.
-    //second int : defines how sms are stored. Value : 2 -> sms not stored on modem, simply forwarded on serial port
-    let _ = device.write("AT+CNMI=2,2\r".as_bytes()).await?;
-    let _ = read_from_file(&mut device, "OK").await?;
     debug!("wait_sms: waiting....");
     let sms_string = read_from_file(&mut device, "+CMT").await?;
-    debug!("wait_sms: message received {}",sms_string);
+    debug!("wait_sms: message received {:?}",sms_string);
     let re = Regex::new(r#"CMT: "(.+)",,"(.+)"\r\n(.*)\r\n"#).unwrap();
     let (_, [from, _date, msg]) = re.captures(&sms_string).ok_or(Error::IncomingSmSParsingError)?.extract();
+    let msg = msg.escape_default();
     Ok(IncomingSms { from: from.to_string(), msg: msg.to_string() })
 }
 
@@ -68,7 +71,7 @@ async fn read_from_file(file: &mut File, expected: &str) -> common::Result<Strin
                 if !value.is_empty() {
                     debug!("read_from_file : content received: {:?}", value);
                     if value.contains(expected) {
-                        return Ok(value.to_string());
+                        return Ok(value);
                     }
                 }
             }
