@@ -38,11 +38,6 @@ Disable services that might disturb telco-vecchio access to router's modem:
 
 Disable cron jobs invoking `modem.sh`, configured in `/etc/gl_crontabs/` that disturb SMS reception
 
-### Sim card configuration
-
-In case SIM card is configured with a PIN code, it must be configured in the following configuration file:
-todo
-
 
 ### Smtp client configuration
 Telco-vecchio daemon sends emails relying on a smtp client, pre-installed on host, called ssmtp.
@@ -117,13 +112,33 @@ reverse ssh tunnel can be manually set up with the following command
 
 ## Telco-vecchio package installation
 
-Scp the generated daemon to the router on /usr/bin.
-Edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf, configuration format is described later in this doc.
+* Scp the generated daemon to the router on /usr/bin/telco-vecchio.
+
+* Edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf, configuration format is described later in this doc.
+
+* In order for the daemon to start at launch time create an init.d script:
+```
+#!/bin/sh /etc/rc.common
+START=95
+
+PROG=/usr/bin/telco-vecchio
+
+start() {
+	$PROG
+}
+
+stop() {
+	return 0
+}
+```
+push it to /etc/init.d/telco-vecchio and invoke `/etc/init.d/telco-vecchio enable` 
 
 ## telco-vecchio daemon
 
 Upon installation telco-vecchio package deploys a daemon that starts upon system boots.
 The daemon monitors incoming SMSs and trigger specific commands based on their content. 
+
+Logs printed by the daemon are written into /var/log/telco-vecchio* files.
 
 ### Commands
 

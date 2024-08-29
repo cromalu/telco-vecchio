@@ -1,7 +1,9 @@
-use std::fs::File;
+use std::fs::{create_dir, File};
 use std::io::Read;
-use std::time::Duration;
-use log::{error, info};
+use std::time::{Duration, SystemTime};
+use fern::Output;
+use log::{debug, error, info};
+use rolling_file::{BasicRollingFileAppender, RollingConditionBasic};
 use serde::{Deserialize, Serialize};
 use crate::{common, sms_utils, status};
 use crate::common::{Configuration, Context};
@@ -9,6 +11,11 @@ use crate::common::Error::ConfigurationParsingError;
 use crate::status::DeviceStatus;
 
 const CONFIGURATION_FILE: &str = "/etc/telco-vecchio.conf";
+const VAR_DIRECTORY : &str = "/usr/share/telco-vecchio";
+const LOG_FILE: &str = "log";
+const INIT_LISTENER_REGISTER: &str = "init-listener-register";
+const LOG_FILE_MAX_SIZE: u64 = 50000;
+const MAX_LOG_FILES: usize = 3;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct InitConfig {
@@ -16,8 +23,34 @@ pub struct InitConfig {
     pub init_status_refresh_max_retry: u32,
 }
 
-pub async fn init() -> common::Result<Context> {
-    info!("init - starting");
+pub async fn init(is_daemon : bool) -> common::Result<Context> {
+
+
+    let _ = create_dir(VAR_DIRECTORY);
+
+    let writer: Output = if is_daemon  {
+        Output::writer(Box::new(BasicRollingFileAppender::new(
+            format!("{}/{}",VAR_DIRECTORY,LOG_FILE),
+            RollingConditionBasic::new().max_size(LOG_FILE_MAX_SIZE),
+            MAX_LOG_FILES
+        ).unwrap()),"\r\n")
+    }else{
+       Output::stdout("\r\n")
+    };
+
+    fern::Dispatch::new()
+        .level(log::LevelFilter::Debug)
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .chain(writer)
+        .apply().unwrap();
 
     //read config
     let mut configuration_string = String::new();

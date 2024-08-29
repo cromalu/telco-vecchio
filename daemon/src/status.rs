@@ -120,16 +120,25 @@ async fn get_device_status(configuration: &Configuration) -> common::Result<Devi
         qmi_device: configuration.monitoring_config.qmi_modem_device.to_string()
     };
     info!("get_device_status - starting");
+
+    info!("get_device_status - checking sim status...");
     if qmi_provider.is_sim_locked().await? {
+        info!("get_device_status - sim card locked");
         return Ok(DeviceStatus::SimLocked);
     }
     info!("get_device_status - sim card unlocked");
+
+    info!("get_device_status - checking lte connection status...");
     if !qmi_provider.is_connected_to_lte().await? {
+        info!("get_device_status - device not connected to lte");
         return Ok(DeviceStatus::LteNotConnected);
     }
     info!("get_device_status - device connected to lte");
+
     //check internet access
+    info!("get_device_status - checking internet connection status...");
     if !qmi_provider.is_connected_to_internet(configuration.monitoring_config.internet_host).await {
+        info!("get_device_status - device not connected to internet");
         return Ok(DeviceStatus::InternetUnreachable);
     }
     info!("get_device_status - device connected to internet");
@@ -145,6 +154,7 @@ struct QmiProvider{
 impl QmiProvider{
 
     async fn is_connected_to_internet(&self, ip_addr: IpAddr) -> bool {
+        debug!("is_connected_to_internet - pinging: {:?} ...",ip_addr);
         match surge_ping::ping(ip_addr, &[0; 8]).await {
             Ok((_, duration)) => {
                 debug!("is_connected_to_internet - internet ping ok - duration: {:?}",duration);

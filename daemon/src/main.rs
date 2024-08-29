@@ -8,9 +8,10 @@ mod request;
 mod init;
 mod status;
 
+use std::env;
 use std::sync::Arc;
+use fork::{daemon, Fork};
 use log::{error, info};
-use simple_logger::SimpleLogger;
 use tokio::sync::Mutex;
 use crate::common::{Context, Error};
 use crate::init::init;
@@ -18,9 +19,19 @@ use crate::sms_utils::OutgoingSms;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    SimpleLogger::new().init().unwrap();
+    let args: Vec<String> = env::args().collect();
+    if args.contains(&"--daemon".to_string()) {
+        if let Ok(Fork::Child) = daemon(false, false) {
+            run(true).await
+        }
+    } else {
+        run(false).await
+    }
+}
+
+async fn run(is_daemon: bool) {
     let task = tokio::spawn(async move {
-        match init().await {
+        match init(is_daemon).await {
             Ok(context) => {
                 let shared_context = Arc::new(Mutex::new(context));
                 loop {
@@ -28,10 +39,9 @@ async fn main() {
                     let sms_config = &shared_context.lock().await.configuration.sms_config.clone();
                     match sms_utils::wait_sms(sms_config).await {
                         Ok(sms) => {
-                            // A new task is spawned for each incoming sms.
-                            let shared_context = Arc::clone(&shared_context);
-                            let request_task = tokio::spawn(async move {
-                                {
+                                // A new task is spawned for each incoming sms.
+                                let shared_context = Arc::clone(&shared_context);
+                                let request_task = tokio::spawn(async move {
                                     let response = match request::handle_request(sms.from.as_str(), sms.msg.as_str(), &shared_context).await {
                                         Ok(message) => {
                                             Some(message)
@@ -65,7 +75,7 @@ async fn main() {
                                         info!("No response to send back");
                                     }
                                 }
-                            });
+                            );
                             request_task.await.unwrap();
                         }
                         Err(e) => {
