@@ -16,6 +16,7 @@ use crate::user::User;
 pub enum Error{
     IoError(io::Error),
     IncomingSmSParsingError,
+    SmsProcessingError(String),
     SystemCommandExecutionError,
     SshTunnelUrlParsingError,
     SshTunnelUrlSetupTimeout,
@@ -90,4 +91,5 @@ impl Context {
     pub fn get_process(&mut self, idx: u32) -> Option<Child> {
         self.running_processes.remove(&idx)
     }
+
 }

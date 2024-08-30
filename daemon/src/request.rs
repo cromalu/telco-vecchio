@@ -1,12 +1,13 @@
+use std::process::Command;
 use std::sync::Arc;
+use std::time::Duration;
 use log::{error, info};
 use tokio::sync::Mutex;
-use crate::{common, Context, email_utils, ssh_utils};
+use crate::{common, Context, email_utils, init, sms_utils, ssh_utils};
 use crate::common::Error;
 use crate::email_utils::OutgoingEmail;
 use crate::status::{DeviceStatus, get_status, ServiceStatus};
 use crate::status::InvalidStatusKind::{ApplicationNotAvailable, EmailServiceUnreachable, InvalidDeviceStatus, SshTunnelServiceUnreachable};
-
 
 
 ///Returns the message to be returned to the request sender as acknowledgement
@@ -128,6 +129,25 @@ pub async fn handle_request(sender: &str, request: &str, context: &Arc<Mutex<Con
             context.update_status(status);
 
             Ok(status_printed)
+        }
+
+        "reboot" => {
+            info!("handle_request - reboot");
+
+            init::register_init_listener(&user);
+
+            let sms_conf = context.configuration.sms_config.clone();
+            let _ = tokio::spawn(
+                async move {
+                    //delay before rebooting so that answer can be returned to sender
+                    info!("handle_request - rebooting in 5 secs");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    let _ = sms_utils::clear(&sms_conf);
+                    _ = Command::new("reboot")
+                        .spawn()
+                }
+            );
+            Ok("Rebooting...".to_string())
         }
 
         _ => {

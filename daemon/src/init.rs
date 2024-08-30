@@ -1,19 +1,24 @@
-use std::fs::{create_dir, File};
-use std::io::Read;
+use std::fs::{create_dir, File, remove_file};
+use std::io::{Read, Write};
+use std::path::Path;
 use std::time::{Duration, SystemTime};
 use fern::Output;
 use log::{debug, error, info};
 use rolling_file::{BasicRollingFileAppender, RollingConditionBasic};
 use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
 use crate::{common, sms_utils, status};
 use crate::common::{Configuration, Context};
 use crate::common::Error::ConfigurationParsingError;
+use crate::sms_utils::OutgoingSms;
 use crate::status::DeviceStatus;
+use crate::user::User;
 
 const CONFIGURATION_FILE: &str = "/etc/telco-vecchio.conf";
 const VAR_DIRECTORY : &str = "/usr/share/telco-vecchio";
 const LOG_FILE: &str = "log";
 const INIT_LISTENER_REGISTER: &str = "init-listener-register";
+
 const LOG_FILE_MAX_SIZE: u64 = 50000;
 const MAX_LOG_FILES: usize = 3;
 
@@ -24,7 +29,6 @@ pub struct InitConfig {
 }
 
 pub async fn init(is_daemon : bool) -> common::Result<Context> {
-
 
     let _ = create_dir(VAR_DIRECTORY);
 
@@ -93,14 +97,84 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
             }
             DeviceStatus::Ready => {
                 info!("init - device is ready");
-                sms_utils::init(&configuration.sms_config).await?;
                 break;
             }
         }
     };
+
+    if status.device_status != DeviceStatus::SimLocked && status.device_status != DeviceStatus::LteNotConnected {
+        //even if status is not ready, sms might be sent or received
+        sms_utils::init(&configuration.sms_config).await?;
+
+
+        if let Some(init_listener) = lookup_init_listener(&configuration){
+            info!("init - notifying registered init listener : {}",init_listener.name);
+            sms_utils::send_sms(&configuration.sms_config, &OutgoingSms {
+                to: init_listener.phone_number.to_string(),
+                msg: format!("Telco-Vecchio is up.\n{}",status.to_string())
+            }).await.unwrap_or_else(|e|{
+                error!("init - cannot notify registered init listener - error : {:?}",e);
+            })
+        }
+    };
+
     let context = Context::new(configuration, status);
     info!("init - initialization done");
     Ok(context)
 }
+
+pub fn register_init_listener(user: &User){
+    let path = format!("{}/{}",VAR_DIRECTORY,INIT_LISTENER_REGISTER);
+    //erase any previous content in the file
+    match std::fs::OpenOptions::new().create(true).write(true).truncate(true).open(Path::new(&path)) {
+        Ok(mut file) => {
+            match file.write(user.name.as_bytes()) {
+                Ok(_) => {
+                    debug!("register_init_listener - user {:?} registered as init listener", user.name);
+                }
+                Err(e) => {
+                    error!("register_init_listener - cannot write to register file {:?} - error: {:?}",&path,e);
+                }
+            }
+        }
+        Err(e) => {
+            error!("register_init_listener - cannot open register file {:?} - error: {:?}",&path,e);
+        }
+    }
+}
+
+fn lookup_init_listener(configuration: &Configuration)-> Option<&User>{
+    let path = format!("{}/{}",VAR_DIRECTORY,INIT_LISTENER_REGISTER);
+    if !Path::exists(Path::new(&path)){
+        debug!("lookup_init_listener - register file does not exists");
+        return None
+    }
+
+    let user = match File::open(&path) {
+        Ok(mut file) => {
+            debug!("lookup_init_listener - register file");
+            let mut content = String::new();
+            match file.read_to_string(&mut content) {
+                Ok(_) => {
+                    debug!("lookup_init_listener - register file content: {:?}",content);
+                    configuration.users.iter().find(|user| {user.name == content})
+                }
+                Err(e) => {
+                    error!("lookup_init_listener - cannot read register file {:?} - error: {:?}",path,e);
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            error!("lookup_init_listener - cannot open register file {:?} - error: {:?}",&path,e);
+            None
+        }
+    };
+    remove_file(Path::new(&path)).unwrap_or_else(|e|{
+        error!("lookup_init_listener - cannot delete register file {:?} - error: {:?}",&path,e);
+    });
+    user
+}
+
 
 
