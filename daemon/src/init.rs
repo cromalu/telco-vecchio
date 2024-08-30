@@ -14,11 +14,12 @@ use crate::status::DeviceStatus;
 use crate::user::User;
 
 const CONFIGURATION_FILE: &str = "/etc/telco-vecchio.conf";
-const VAR_DIRECTORY : &str = "/usr/share/telco-vecchio";
+const SHARE_DIRECTORY: &str = "/usr/share/telco-vecchio";
+const LOG_DIRECTORY: &str = "/tmp/log/telco-vecchio";
 const LOG_FILE: &str = "log";
 const INIT_LISTENER_REGISTER: &str = "init-listener-register";
 
-const LOG_FILE_MAX_SIZE: u64 = 25000;
+const LOG_FILE_MAX_SIZE: u64 = 500000;
 const MAX_LOG_FILES: usize = 2;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -29,11 +30,12 @@ pub struct InitConfig {
 
 pub async fn init(is_daemon : bool) -> common::Result<Context> {
 
-    let _ = create_dir(VAR_DIRECTORY);
+    let _ = create_dir(LOG_DIRECTORY);
+    let _ = create_dir(SHARE_DIRECTORY);
 
     let writer: Output = if is_daemon  {
         Output::writer(Box::new(BasicRollingFileAppender::new(
-            format!("{}/{}",VAR_DIRECTORY,LOG_FILE),
+            format!("{}/{}", LOG_DIRECTORY, LOG_FILE),
             RollingConditionBasic::new().max_size(LOG_FILE_MAX_SIZE),
             MAX_LOG_FILES - 1
         ).unwrap()),"\r\n")
@@ -123,13 +125,13 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
 }
 
 pub fn register_init_listener(user: &User){
-    let path = format!("{}/{}",VAR_DIRECTORY,INIT_LISTENER_REGISTER);
+    let path = format!("{}/{}", SHARE_DIRECTORY, INIT_LISTENER_REGISTER);
     //erase any previous content in the file
     match std::fs::OpenOptions::new().create(true).write(true).truncate(true).open(Path::new(&path)) {
         Ok(mut file) => {
             match file.write(user.name.as_bytes()) {
                 Ok(_) => {
-                    debug!("register_init_listener - user {:?} registered as init listener", user.name);
+                    debug!("register_init_listener - user {:?} registered as init listener", user.name)
                 }
                 Err(e) => {
                     error!("register_init_listener - cannot write to register file {:?} - error: {:?}",&path,e);
@@ -143,7 +145,7 @@ pub fn register_init_listener(user: &User){
 }
 
 fn lookup_init_listener(configuration: &Configuration)-> Option<&User>{
-    let path = format!("{}/{}",VAR_DIRECTORY,INIT_LISTENER_REGISTER);
+    let path = format!("{}/{}", SHARE_DIRECTORY, INIT_LISTENER_REGISTER);
     if !Path::exists(Path::new(&path)){
         debug!("lookup_init_listener - register file {} does not exists",&path);
         return None
