@@ -38,6 +38,10 @@ Disable services that might disturb telco-vecchio access to router's modem:
 
 Disable cron jobs invoking `modem.sh`, configured in `/etc/gl_crontabs/` that disturb SMS reception
 
+note that modem interactions are done through AT commands that can manually send with pre-installed binary:
+```
+gl_modem -B 1-1 AT /dev/ttyUSB2 AT+CMGS?
+```
 
 ### Smtp client configuration
 Telco-vecchio daemon sends emails relying on a smtp client, pre-installed on host, called ssmtp.
