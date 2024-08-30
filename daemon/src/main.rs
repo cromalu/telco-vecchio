@@ -9,10 +9,8 @@ mod init;
 mod status;
 
 use std::env;
-use std::sync::Arc;
 use fork::{daemon, Fork};
 use log::{error, info};
-use tokio::sync::Mutex;
 use crate::common::{Context, Error};
 use crate::init::init;
 use crate::sms_utils::OutgoingSms;
@@ -32,51 +30,42 @@ async fn main() {
 async fn run(is_daemon: bool) {
     let task = tokio::spawn(async move {
         match init(is_daemon).await {
-            Ok(context) => {
-                let shared_context = Arc::new(Mutex::new(context));
-                loop {
+            Ok(mut context) => { loop {
                     info!("waiting for SMS....");
-                    let sms_config = &shared_context.lock().await.configuration.sms_config.clone();
-                    match sms_utils::wait_sms(sms_config).await {
+                    match sms_utils::wait_sms(&context.configuration.sms_config).await {
                         Ok(sms) => {
-                                // A new task is spawned for each incoming sms.
-                                let shared_context = Arc::clone(&shared_context);
-                                let request_task = tokio::spawn(async move {
-                                    let response = match request::handle_request(sms.from.as_str(), sms.msg.as_str(), &shared_context).await {
-                                        Ok(message) => {
-                                            Some(message)
-                                        }
-                                        Err(Error::SenderNotAllowed(_)) => {
-                                            //stay silent
-                                            None
-                                        }
-                                        Err(Error::InvalidRequestError(s)) => {
-                                            //applicative error
-                                            Some(format!("The message you just sent is invalid : {}", s))
-                                        }
-                                        Err(e) => {
-                                            //technical error
-                                            Some(format!("An error occurred : {:?}", e))
-                                        }
-                                    };
+                            let response = match request::handle_request(sms.from.as_str(), sms.msg.as_str(), &mut context).await {
+                                Ok(message) => {
+                                    Some(message)
+                                }
+                                Err(Error::SenderNotAllowed(_)) => {
+                                    //stay silent
+                                    None
+                                }
+                                Err(Error::InvalidRequestError(s)) => {
+                                    //applicative error
+                                    Some(format!("The message you just sent is invalid : {}", s))
+                                }
+                                Err(e) => {
+                                    //technical error
+                                    Some(format!("An error occurred : {:?}", e))
+                                }
+                            };
 
-                                    if let Some(message) = response {
-                                        info!("Sending back response");
-                                        match sms_utils::send_sms(&shared_context.lock().await.configuration.sms_config,
-                                                                  &OutgoingSms { to: sms.from.to_string(), msg: message }).await {
-                                            Ok(()) => {
-                                                info!("Response sent");
-                                            }
-                                            Err(e) => {
-                                                error!("Error while sending back response: {:?}",e);
-                                            }
-                                        }
-                                    } else {
-                                        info!("No response to send back");
+                            if let Some(message) = response {
+                                info!("Sending back response");
+                                match sms_utils::send_sms(&context.configuration.sms_config,
+                                                          &OutgoingSms { to: sms.from.to_string(), msg: message }).await {
+                                    Ok(()) => {
+                                        info!("Response sent");
+                                    }
+                                    Err(e) => {
+                                        error!("Error while sending back response: {:?}",e);
                                     }
                                 }
-                            );
-                            request_task.await.unwrap();
+                            } else {
+                                info!("No response to send back");
+                            }
                         }
                         Err(e) => {
                             error!("SMS listening failed {:?}, retrying",e);

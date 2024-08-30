@@ -30,14 +30,6 @@ pub async fn init(config: &SmsConfig) -> common::Result<()> {
     Ok(())
 }
 
-pub async fn clear(config: &SmsConfig) -> common::Result<()> {
-    let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
-    debug!("clear: clearing sms stored");
-    let _ = device.write("AT+CMGD=,4\r".as_bytes()).await?;
-    let _ = read_from_file(&mut device, "OK").await?;
-    Ok(())
-}
-
 pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<()> {
     let mut device = File::options().write(true).read(true).open(&config.modem_device).await?;
     debug!("send_sms: setting destination number");
