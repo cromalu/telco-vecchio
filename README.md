@@ -117,6 +117,11 @@ public and private key, ensure not to upload the private key.
 reverse ssh tunnel can be manually set up with the following command
 ```ssh -i /etc/dropbear/dropbear_rsa_host_key -R 0:127.0.0.1:8080 v2@connect.ngrok-agent.com http```
 
+### DHCP Server
+
+In /etc/config/dhcp configure DHCP server to allocate IP addresses sequentially,
+so that we can guess what ip will be given to our host without having to configure their MAC address somewhere
+
 ## Telco-vecchio package installation
 
 * Scp the generated daemon to the router on /usr/bin/telco-vecchio.
