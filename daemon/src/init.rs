@@ -6,7 +6,6 @@ use fern::Output;
 use log::{debug, error, info};
 use rolling_file::{BasicRollingFileAppender, RollingConditionBasic};
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
 use crate::{common, sms_utils, status};
 use crate::common::{Configuration, Context};
 use crate::common::Error::ConfigurationParsingError;
@@ -19,8 +18,8 @@ const VAR_DIRECTORY : &str = "/usr/share/telco-vecchio";
 const LOG_FILE: &str = "log";
 const INIT_LISTENER_REGISTER: &str = "init-listener-register";
 
-const LOG_FILE_MAX_SIZE: u64 = 50000;
-const MAX_LOG_FILES: usize = 3;
+const LOG_FILE_MAX_SIZE: u64 = 25000;
+const MAX_LOG_FILES: usize = 2;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct InitConfig {
@@ -36,14 +35,14 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
         Output::writer(Box::new(BasicRollingFileAppender::new(
             format!("{}/{}",VAR_DIRECTORY,LOG_FILE),
             RollingConditionBasic::new().max_size(LOG_FILE_MAX_SIZE),
-            MAX_LOG_FILES
+            MAX_LOG_FILES - 1
         ).unwrap()),"\r\n")
     }else{
        Output::stdout("\r\n")
     };
 
     fern::Dispatch::new()
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Info)
         .format(|out, message, record| {
             out.finish(format_args!(
                 "[{} {} {}] {}",
@@ -146,7 +145,7 @@ pub fn register_init_listener(user: &User){
 fn lookup_init_listener(configuration: &Configuration)-> Option<&User>{
     let path = format!("{}/{}",VAR_DIRECTORY,INIT_LISTENER_REGISTER);
     if !Path::exists(Path::new(&path)){
-        debug!("lookup_init_listener - register file does not exists");
+        debug!("lookup_init_listener - register file {} does not exists",&path);
         return None
     }
 

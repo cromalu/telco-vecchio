@@ -50,7 +50,7 @@ pub type Result<T> = std::result::Result<T,Error>;
 pub struct Context {
     pub configuration: Configuration,
     pub status: Status,
-    pub running_processes: HashMap<u32, Child>,
+    pub running_processes: HashMap<u32, (String,Child)>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -80,16 +80,4 @@ impl Context {
     pub fn update_status(&mut self, status: Status){
         self.status = status;
     }
-
-
-    pub fn store_process(&mut self, process: Child) -> u32 {
-        let idx = self.running_processes.len() as u32;
-        self.running_processes.insert(idx, process);
-        idx
-    }
-
-    pub fn get_process(&mut self, idx: u32) -> Option<Child> {
-        self.running_processes.remove(&idx)
-    }
-
 }

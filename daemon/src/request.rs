@@ -1,6 +1,6 @@
 use std::process::Command;
 use std::time::Duration;
-use log::{error, info};
+use log::{debug, error, info};
 use crate::{common, Context, email_utils, init, ssh_utils};
 use crate::common::Error;
 use crate::email_utils::OutgoingEmail;
@@ -21,13 +21,13 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
     info!("handle_request - sms received from allowed sender {}",user.name);
 
     //check request content
-    let mut args = request.split(" ");
+    let mut args = request.split_whitespace().map(|s| s.to_lowercase());
     let command = args.next().ok_or_else(|| {
         error!("handle_request - cannot read command from request");
         Error::InvalidRequestError(format!("Cannot read command from request: {}", request))
     })?;
 
-    match command {
+    match command.as_str() {
         "open" => {
             info!("handle_request - opening tunnel");
 
@@ -60,7 +60,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                     error!("handle_request - cannot open tunnel: application {} is unknown",application_str);
                     Err(e)
                 })?;
-            if !matches!(context.status.applications_status.get(application_str).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
+            if !matches!(context.status.applications_status.get(application_str.as_str()).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
                 error!("init - cannot open tunnel: application {} is not reachable",application_str);
                 return Err(Error::InvalidStatus(ApplicationNotAvailable(application_str.to_string())));
             }
@@ -80,7 +80,8 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             }).await?;
             info!("handle_request - tunnel url sent by mail to: {}",user.email);
 
-            let process_id = context.store_process(tunnel_process);
+            let process_id = context.running_processes.len() as u32;
+            context.running_processes.insert(process_id, (user.name.clone(), tunnel_process));
 
             //todo indicate the mail in the ack, but masking it
             Ok(format!("Tunnel has been setup, reference is: {}\nAccess url has been send to you by mail", process_id))
@@ -90,30 +91,50 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             info!("handle_request - closing tunnel");
 
             //reading tunnel process reference
-            let reference_str = args.next().ok_or_else(|| {
-                error!("handle_request - no tunnel reference specified");
-                Error::InvalidRequestError(format!("No tunnel reference specified: {}", request))
-            })?;
+            let references = if let Some(s) = args.next() {
+                //parsing tunnel process reference to int
+                let reference: u32 = s.parse::<u32>().map_err(|_| {
+                    error!("handle_request - invalid tunnel reference");
+                    Error::InvalidRequestError(format!("Invalid tunnel reference: {}", s))
+                })?;
+                vec!(reference)
+            } else {
+                debug!("handle_request - no tunnel reference specified, checking tunnels open by user");
+                //if no reference passed, closing all the tunnels open by the user
+                let refs: Vec<u32> = context.running_processes.iter().filter_map(|(key, value)| {
+                    if value.0 == user.name {
+                        Some(*key)
+                    } else {
+                        None
+                    }
+                }).collect();
+                if refs.is_empty() {
+                    error!("handle_request - no tunnel reference found");
+                    Err(Error::InvalidRequestError(format!("No tunnel reference specified: {}", request)))
+                } else {
+                    Ok(refs)
+                }?
+            };
 
-            //parsing tunnel process reference to int
-            let reference: u32 = reference_str.parse::<u32>().map_err(|_| {
-                error!("handle_request - invalid tunnel reference");
-                Error::InvalidRequestError(format!("Invalid tunnel reference: {}", reference_str))
-            })?;
-
-            info!("handle_request - closing tunnel with reference {}",reference);
+            info!("handle_request - closing tunnel(s) with reference(s): {:?}",references);
 
             //resolve process
-            let mut process = context.get_process(reference).ok_or_else(|| {
-                error!("handle_request - unknown application");
-                Error::InvalidRequestError(format!("Unknown tunnel reference: {}", reference))
-            })?;
+            for reference in &references {
+                let mut entry = context.running_processes.remove(&reference).ok_or_else(|| {
+                    error!("handle_request - unknown application");
+                    Error::InvalidRequestError(format!("Unknown tunnel reference: {}", reference))
+                })?;
+                //killing it
+                entry.1.kill().await?;
+                info!("handle_request - tunnel process with reference: {} has been killed",reference);
+            }
 
-            //killing it
-            process.kill().await?;
-            info!("handle_request - tunnel process has been killed");
-
-            Ok("Tunnel has been closed".to_string())
+            let message = if references.len() > 1 {
+                "Tunnels have been closed"
+            } else {
+                "Tunnel has been closed"
+            };
+            Ok(message.to_string())
         }
 
         "status" => {
