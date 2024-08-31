@@ -15,8 +15,9 @@ use crate::user::User;
 #[derive(Debug)]
 pub enum Error{
     IoError(io::Error),
-    IncomingSmSParsingError,
-    SmsProcessingError(String),
+    SmsInitError,
+    SmsReadingError,
+    SmsSendingError,
     SystemCommandExecutionError,
     SshTunnelUrlParsingError,
     SshTunnelUrlSetupTimeout,

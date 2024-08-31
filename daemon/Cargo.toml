@@ -18,7 +18,8 @@ surge-ping = "0.8"
 dns-lookup = "2.0"
 fork = "0.2"
 humantime = "2.1.0"
-
+gsm7 = "0.3.0"
+hex = "0.4"
 
 [profile.release]
 lto = "fat"

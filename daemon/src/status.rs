@@ -228,12 +228,11 @@ impl QmiProvider{
 
 impl Display for Status {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Device status: {}\n", self.device_status.to_string())?;
-        write!(f, "Email service status: {}\n", self.email_service_status.to_string())?;
-        write!(f, "Ssh tunnel service status: {}\n", self.ssh_tunnel_service_status.to_string())?;
-        write!(f, "Applications:\n")?;
+        write!(f, "Device: {}\n", self.device_status.to_string())?;
+        write!(f, "Email service: {}\n", self.email_service_status.to_string())?;
+        write!(f, "Ssh tunnel service: {}\n", self.ssh_tunnel_service_status.to_string())?;
         for app in self.applications_status.iter() {
-            write!(f, "* {} - status: {}", app.0, app.1.to_string())?;
+            write!(f, "- {} status: {}", app.0, app.1.to_string())?;
         }
         Ok(())
     }

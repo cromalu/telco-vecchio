@@ -21,13 +21,13 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
     info!("handle_request - sms received from allowed sender {}",user.name);
 
     //check request content
-    let mut args = request.split_whitespace().map(|s| s.to_lowercase());
+    let mut args = request.split_whitespace();
     let command = args.next().ok_or_else(|| {
         error!("handle_request - cannot read command from request");
         Error::InvalidRequestError(format!("Cannot read command from request: {}", request))
     })?;
 
-    match command.as_str() {
+    match command.to_lowercase().as_str() {
         "open" => {
             info!("handle_request - opening tunnel");
 
@@ -60,7 +60,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                     error!("handle_request - cannot open tunnel: application {} is unknown",application_str);
                     Err(e)
                 })?;
-            if !matches!(context.status.applications_status.get(application_str.as_str()).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
+            if !matches!(context.status.applications_status.get(application_str).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
                 error!("init - cannot open tunnel: application {} is not reachable",application_str);
                 return Err(Error::InvalidStatus(ApplicationNotAvailable(application_str.to_string())));
             }
