@@ -28,7 +28,8 @@ pub enum Error{
     InvalidRequestError(String),
     DomainNameResolutionError,
     PingError(SurgeError),
-    InvalidStatus(InvalidStatusKind)
+    InvalidStatus(InvalidStatusKind),
+    AlreadyOpenTunnel(u32)
 }
 
 impl From<io::Error> for Error{
@@ -47,11 +48,24 @@ pub type Result<T> = std::result::Result<T,Error>;
 
 
 
-#[derive(Debug)]
 pub struct Context {
     pub configuration: Configuration,
     pub status: Status,
-    pub running_processes: HashMap<u32, (String,Child)>,
+    pub tunnels: HashMap<u32, Tunnel>,
+}
+
+
+pub struct Tunnel{
+    pub user: String,
+    pub application: String,
+    pub process: Child,
+}
+
+impl Tunnel {
+
+    pub fn new(user: String, application: String, process: Child) -> Self {
+        Self { user, application, process }
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -74,7 +88,7 @@ impl Context {
         Self {
             configuration,
             status,
-            running_processes: HashMap::new(),
+            tunnels: HashMap::new(),
         }
     }
 

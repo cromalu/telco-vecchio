@@ -28,7 +28,8 @@ pub struct SshConfig {
 ///default keys are configured in /etc/dropbear/
 /// returns the process running the ssh tunnel and the tunnel access url on the cloud service
 pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_port: i32) -> common::Result<(String, Child)> {
-    let mut ssh_process = Command::new(&config.binary_file)
+    let mut ssh_command = Command::new(&config.binary_file);
+    ssh_command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -37,9 +38,10 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
         .arg("-R")
         .arg(format!("{}:{}:{}", &config.tunnel_input_port, output_host, output_port))
         .arg(format!("{}@{}", &config.service_user, &config.service_host))
-        .arg(SSH_CLOUD_SERVICE_ARGS.join(" "))
+        .arg(SSH_CLOUD_SERVICE_ARGS.join(" "));
+    debug!("setup_ssh_tunnel: command: {:?}",ssh_command);
+    let mut ssh_process = ssh_command
         .spawn()?;
-
     debug!("setup_ssh_tunnel: command issued");
 
     //reading tunnel url from stdout

@@ -2,7 +2,7 @@ use std::process::Command;
 use std::time::Duration;
 use log::{debug, error, info};
 use crate::{common, Context, email_utils, init, ssh_utils};
-use crate::common::Error;
+use crate::common::{Error, Tunnel};
 use crate::email_utils::OutgoingEmail;
 use crate::status::{DeviceStatus, get_status, ServiceStatus};
 use crate::status::InvalidStatusKind::{ApplicationNotAvailable, EmailServiceUnreachable, InvalidDeviceStatus, SshTunnelServiceUnreachable};
@@ -66,7 +66,12 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             }
             info!("handle_request - opening tunnel to application : {}",application.name);
 
-            //todo close tunnel if already existing for this user&application
+            if let Some((tunnel_ref,_)) = context.tunnels.iter().find(|(_, tunnel)| {
+                tunnel.user == user.name && tunnel.application == application.name
+            }){
+                error!("handle_request - a tunnel is already open by the user for this application");
+                return Err(Error::AlreadyOpenTunnel(*tunnel_ref));
+            }
 
             //open ssh tunnel towards this app
             let (tunnel_url, tunnel_process) = ssh_utils::setup_ssh_tunnel(&context.configuration.ssh_config, &application.host_ip, application.port).await?;
@@ -80,8 +85,8 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             }).await?;
             info!("handle_request - tunnel url sent by mail to: {}",user.email);
 
-            let process_id = context.running_processes.len() as u32;
-            context.running_processes.insert(process_id, (user.name.clone(), tunnel_process));
+            let process_id = context.tunnels.len() as u32;
+            context.tunnels.insert(process_id, Tunnel::new(user.name.clone(), application.name.clone(), tunnel_process));
 
             //todo indicate the mail in the ack, but masking it
             Ok(format!("Tunnel has been setup, reference is: {}\nAccess url has been send to you by mail", process_id))
@@ -101,8 +106,8 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             } else {
                 debug!("handle_request - no tunnel reference specified, checking tunnels open by user");
                 //if no reference passed, closing all the tunnels open by the user
-                let refs: Vec<u32> = context.running_processes.iter().filter_map(|(key, value)| {
-                    if value.0 == user.name {
+                let refs: Vec<u32> = context.tunnels.iter().filter_map(|(key, value)| {
+                    if value.user == user.name {
                         Some(*key)
                     } else {
                         None
@@ -120,12 +125,12 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
 
             //resolve process
             for reference in &references {
-                let mut entry = context.running_processes.remove(&reference).ok_or_else(|| {
+                let mut entry = context.tunnels.remove(&reference).ok_or_else(|| {
                     error!("handle_request - unknown application");
                     Error::InvalidRequestError(format!("Unknown tunnel reference: {}", reference))
                 })?;
                 //killing it
-                entry.1.kill().await?;
+                entry.process.kill().await?;
                 info!("handle_request - tunnel process with reference: {} has been killed",reference);
             }
 

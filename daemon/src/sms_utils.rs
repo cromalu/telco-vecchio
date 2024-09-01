@@ -21,6 +21,7 @@ pub async fn init(config: &SmsConfig) -> common::Result<()> {
     debug!("init: running AT+CMGF");
     //set mode to PDU mode
     let response = at_transaction(&mut device_file,"AT+CMGF=0\r").await.map_err(|_| SmsInitError)?;
+    debug!("init: response received: {}",response);
     if !response.contains("OK"){
         error!("AT+CMGF failed - response: {}",response);
         return Err(SmsInitError)
@@ -30,6 +31,7 @@ pub async fn init(config: &SmsConfig) -> common::Result<()> {
     //first int : defines how notifications are dispatched. Value : 2 -> send notifications to the TE, buffering them and sending them later if they cannot be sent.
     //second int : defines how sms are stored. Value : 2 -> sms not stored on modem, simply forwarded on serial port
     let response = at_transaction(&mut device_file,"AT+CNMI=2,2\r").await.map_err(|_| SmsInitError)?;
+    debug!("init: response received: {}",response);
     if !response.contains("OK"){
         error!("AT+CNMI failed - response: {}",response);
         return Err(SmsInitError)
@@ -53,12 +55,14 @@ pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<(
 
     debug!("send_sms: running AT+CMGS");
     let response = at_transaction(&mut device_file,format!("AT+CMGS={}\r", (pdu.len() - 2) / 2).as_str()).await.map_err(|_| SmsSendingError)?;
+    debug!("send_sms: response received: {}",response);
     if !response.contains(">"){
         error!("AT+CMGS initiation failed - response: {}",response);
         return Err(SmsSendingError)
     }
     error!("AT+CMGS initiation success - sending command");
     let response = at_transaction(&mut device_file,pdu.as_str()).await.map_err(|_| SmsSendingError)?;
+    debug!("send_sms: response received: {}",response);
     if !response.contains("OK"){
         error!("AT+CMGS command failed - response: {}",response);
         return Err(SmsSendingError)
