@@ -40,6 +40,11 @@ Disable cron jobs invoking `modem.sh`, configured in `/etc/gl_crontabs/` that di
 
 Disable status track from the modem web interface
 
+Uninstall the following packages
+gl-sdk4-ui-sms
+gl-sdk4-sms-forward
+smstools3
+
 
 note that modem interactions are done through AT commands that can manually send with pre-installed binary:
 ```

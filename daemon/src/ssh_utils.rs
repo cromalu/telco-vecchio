@@ -30,9 +30,11 @@ pub struct SshConfig {
 pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_port: i32) -> common::Result<(String, Child)> {
     let mut ssh_command = Command::new(&config.binary_file);
     ssh_command
+        .kill_on_drop(true) //allow proper housekeeping in case daemon is killed
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .arg("-y")
         .arg("-i")
         .arg(&config.key_file)
         .arg("-R")
@@ -69,7 +71,7 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
                             let [error] = captures.extract().1.map(|s| s.to_string());
                             debug!("setup_ssh_tunnel: error: {}",error);
                             break Err(SshTunnelServiceError(error));
-                        }else{
+                        } else {
                             debug!("setup_ssh_tunnel: url not yet read");
                         }
                     } else {
@@ -85,8 +87,13 @@ pub async fn setup_ssh_tunnel(config: &SshConfig, output_host: &IpAddr, output_p
     ).await.unwrap_or_else(|_| {
         error!("setup_ssh_tunnel: timeout while trying to read tunnel url");
         Err(Error::SshTunnelUrlSetupTimeout)
-    })?;
-
-    Ok((tunnel_url, ssh_process))
+    });
+    if let Err(_) = tunnel_url {
+        let mut stderr = ssh_process.stderr.take().ok_or(common::Error::SystemCommandExecutionError).unwrap();
+        let mut buff = vec![0u8; 300];
+        let len = stderr.read(&mut buff).await.unwrap();
+        error!("setup_ssh_tunnel: stderr: {}",String::from_utf8(buff[0..len].to_vec()).unwrap());
+    }
+    Ok((tunnel_url?, ssh_process))
 }
 
