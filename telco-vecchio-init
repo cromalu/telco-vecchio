@@ -1,12 +1,55 @@
 #!/bin/sh /etc/rc.common
 START=99
 
-PROG=/usr/bin/telco-vecchio
+NAME="Telco-vecchio daemon"
+DAEMON=/usr/bin/telco-vecchio
+DAEMON_ARGS=--daemon
+PIDFILE=/var/run/telco-vecchio.pid
 
 start() {
-	$PROG --daemon
+  echo "STARTING ${NAME}"
+  res=0
+  status && res=1
+  if [ $res = 1 ]; then
+    echo "${NAME} already running" >&2
+    return 1
+  fi
+	$DAEMON $DAEMON_ARGS
+	sleep 2
+	ps -w | grep $DAEMON | awk {'print $1'} | head -n 1 > $PIDFILE
+	echo "$DAEMON STARTED."
 }
 
 stop() {
-	return 0
+  echo "STOPPING ${NAME}"
+  res=0
+  status || res=1
+  if [ $res = 1 ]; then
+    echo "${NAME}  not running" >&2
+    return 1
+  fi
+  PID=$(cat $PIDFILE)
+  echo "PID $PID"
+  rm -f $PIDFILE
+  kill $PID
+  echo "$DAEMON STOPPED."
 }
+
+restart() {
+  echo "RESTARTING ${NAME}"
+  stop
+  start
+}
+
+EXTRA_COMMANDS="status"
+EXTRA_HELP="	                indicates if daemon is currently running (0:daemon is running - 1:daemon is not running)"
+
+status() {
+  if [ -f "$PIDFILE" ];then
+      return 0
+  else
+      return 1
+  fi
+}
+
+
