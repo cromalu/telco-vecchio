@@ -1,0 +1,28 @@
+{
+  "luci-app-telco-vecchio": {
+    "description": "Grant access for luci-app-telco-vecchio",
+    "read" : {
+      "file" : {
+        "/etc/telco-vecchio.conf" : [ "read" ],
+        "/etc/ssmtp/ssmtp.conf" : [ "read" ],
+        "/etc/ssmtp/revaliases" : [ "read" ],
+        "/etc/dropbear/dropbear_rsa_host_key" : [ "read" ],
+        "/etc/init.d/telco-vecchio" : [ "exec" ],
+        "/usr/bin/tail" : [ "exec" ],
+        "/usr/bin/telco-vecchio" : [ "read" ],
+        "/tmp/log/telco-vecchio/*" : [ "read" ]
+      }
+    },
+    "write" : {
+      "file" : {
+        "/etc/telco-vecchio.conf" : [ "write" ],
+        "/etc/init.d/telco-vecchio" : [ "exec" ],
+        "/usr/bin/tail" : [ "exec" ],
+        "/usr/bin/telco-vecchio" : [ "write" ],
+        "/etc/ssmtp/ssmtp.conf" : [ "write" ],
+        "/etc/ssmtp/revaliases" : [ "write" ],
+        "/etc/dropbear/dropbear_rsa_host_key" : [ "write" ]
+      }
+    }
+  }
+}

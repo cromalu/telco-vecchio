@@ -129,26 +129,28 @@ so that we can guess what ip will be given to our host without having to configu
 
 ## Telco-vecchio package installation
 
-* Scp the generated daemon to the router on /usr/bin/telco-vecchio.
+### Binary
 
-* Edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf, configuration format is described later in this doc.
+Scp the generated daemon to the router on /usr/bin/telco-vecchio.
 
-* In order for the daemon to start at launch time create an init.d script:
-```
-#!/bin/sh /etc/rc.common
-START=95
+### Configuration
 
-PROG=/usr/bin/telco-vecchio
+Edit and scp the telco vecchio configuration file on /etc/telco-vecchio.conf, configuration format is described later in this doc.
 
-start() {
-	$PROG
-}
+### Init scripts 
 
-stop() {
-	return 0
-}
-```
-push it to /etc/init.d/telco-vecchio and invoke `/etc/init.d/telco-vecchio enable` 
+Scp `telco-vecchio-init` init script on the router, to `/etc/init.d/telco-vecchio` and invoke `/etc/init.d/telco-vecchio enable` 
+
+### Luci files
+
+In order to be able to update telco-vecchio binary and configuration through the web interface provided by the router,
+copy to the router the following files: 
+
+* `luci/views/actions.js` to `/www/luci-static/resources/view/telco-vecchio/actions.js`
+* `luci/views/logs.js` to `/www/luci-static/resources/view/telco-vecchio/logs.js`
+* `luci/views/other.js` to `/www/luci-static/resources/view/telco-vecchio/other.js`
+* `luci/root/usr/share/luci/menu.d/luci-app-telco-vecchio.json` to `/usr/share/luci/menu.d/luci-app-telco-vecchio.json`
+* `luci/root/usr/share/rpcd/acl.d/luci-app-telco-vecchio.json` to `/usr/share/rpcd/acl.d/luci-app-telco-vecchio.json`
 
 ## telco-vecchio daemon
 

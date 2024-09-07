@@ -1,0 +1,36 @@
+{
+  "admin/services/telco-vecchio": {
+    "title": "Telco-Vecchio",
+    "action": {
+      "type": "firstchild"
+    }
+  },
+
+  "admin/services/telco-vecchio/config": {
+    "title": "Actions",
+    "order": 1,
+    "action": {
+      "type": "view",
+      "path": "telco-vecchio/actions"
+    }
+  },
+
+  "admin/services/telco-vecchio/logs": {
+    "title": "Logs",
+    "order": 2,
+    "action": {
+      "type": "view",
+      "path": "telco-vecchio/logs"
+    }
+  },
+  "admin/services/telco-vecchio/other": {
+    "title": "Other",
+    "order": 3,
+    "action": {
+      "type": "view",
+      "path": "telco-vecchio/other"
+    }
+  }
+
+
+}
