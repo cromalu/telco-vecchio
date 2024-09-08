@@ -130,9 +130,17 @@ async fn at_transaction(serial_port: &mut SerialPort, command: &str) -> Result<S
     if !command.is_empty() {
         debug!("at_transaction: sending command: {:?}",command);
         serial_port.write_all(command.as_bytes()).await?;
+
         //reading the command just sent
         let mut buffer = vec![0; command.as_bytes().len()];
-        let _ = serial_port.read(&mut buffer).await?;
+        loop{
+            let l = serial_port.read(&mut buffer).await?;
+            buffer = buffer[l..].to_vec();
+            if buffer.len() == 0 {
+                break
+            }
+        }
+
         debug!("at_transaction: waiting response");
     }
     let mut buffer: [u8; 128] = [0; 128];
