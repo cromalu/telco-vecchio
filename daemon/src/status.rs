@@ -232,7 +232,7 @@ impl Display for Status {
         write!(f, "Email service: {}\n", self.email_service_status.to_string())?;
         write!(f, "Ssh tunnel service: {}\n", self.ssh_tunnel_service_status.to_string())?;
         for app in self.applications_status.iter() {
-            write!(f, "- {} status: {}", app.0, app.1.to_string())?;
+            write!(f, "- {}: {}\n", app.0, app.1.to_string())?;
         }
         Ok(())
     }

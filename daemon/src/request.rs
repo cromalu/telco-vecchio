@@ -118,7 +118,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                 }).collect();
                 if refs.is_empty() {
                     error!("handle_request - no tunnel reference found");
-                    Err(Error::InvalidRequestError(format!("No tunnel reference specified: {}", request)))
+                    Err(Error::InvalidRequestError(format!("No open tunnel")))
                 } else {
                     Ok(refs)
                 }?
