@@ -172,6 +172,21 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             Ok("Rebooting...".to_string())
         }
 
+        "shutdown" => {
+            info!("handle_request - shutdown");
+
+            let _ = tokio::spawn(
+                async move {
+                    //delay before rebooting so that answer can be returned to sender
+                    info!("handle_request - shutingdown in 5 secs");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    _ = Command::new("poweroff")
+                        .spawn()
+                }
+            );
+            Ok("Shutting down...".to_string())
+        }
+
         _ => {
             error!("handle_request - unknown command: {:?}", command);
             Err(Error::InvalidRequestError(format!("Unknown command: {}", command)))
