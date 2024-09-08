@@ -74,8 +74,11 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             }
 
             //open ssh tunnel towards this app
-            let (tunnel_url, tunnel_process) = ssh_utils::setup_ssh_tunnel(&context.configuration.ssh_config, &application.host_ip, application.port).await?;
+            let (mut tunnel_url, tunnel_process) = ssh_utils::setup_ssh_tunnel(&context.configuration.ssh_config, &application.host_ip, application.port).await?;
             info!("handle_request - tunnel open, url: {}", tunnel_url);
+
+            //appending end point to the generated url
+             tunnel_url.push_str(&application.end_point);
 
             //sending tunnel url to user through email
             email_utils::send_email(&context.configuration.email_config, &OutgoingEmail {

@@ -5,7 +5,7 @@
 
 return view.extend({
     load: function() {
-        return fs.exec_direct('tail',['-n','100','/tmp/log/telco-vecchio/log.1','/tmp/log/telco-vecchio/log']).catch(function(err) {
+        return fs.exec_direct('tail',['/tmp/log/telco-vecchio/log.1','/tmp/log/telco-vecchio/log']).catch(function(err) {
             ui.addNotification(null, E('p', {}, _('Unable to load logs: ' + err.message)));
             return '';
         });

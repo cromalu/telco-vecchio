@@ -6,5 +6,6 @@ pub struct Application {
     pub name: String,
     pub host_ip: IpAddr,
     pub port: i32,
+    pub end_point: String
 }
 
