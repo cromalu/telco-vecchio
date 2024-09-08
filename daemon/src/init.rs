@@ -58,11 +58,7 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
         .apply().unwrap();
 
     //read config
-    let mut configuration_string = String::new();
-    File::open(CONFIGURATION_FILE)?.read_to_string(&mut configuration_string)?;
-    info!("init - configuration content:\n{}",configuration_string);
-
-    let configuration: Configuration = toml::from_str(&configuration_string).map_err(|e| ConfigurationParsingError(e))?;
+    let configuration = read_config_file(CONFIGURATION_FILE)?;
     info!("init - configuration read properly");
 
     //get device current status
@@ -123,6 +119,15 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
     info!("init - initialization success");
     Ok(context)
 }
+
+pub fn read_config_file(path : &str) -> common::Result<Configuration>{
+    let mut configuration_string = String::new();
+    File::open(path)?.read_to_string(&mut configuration_string)?;
+    info!("init - configuration content:\n{}",configuration_string);
+    let config = toml::from_str(&configuration_string).map_err(|e| ConfigurationParsingError(e))?;
+    Ok(config)
+}
+
 
 pub fn register_init_listener(user: &User){
     let path = format!("{}/{}", SHARE_DIRECTORY, INIT_LISTENER_REGISTER);

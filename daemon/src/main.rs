@@ -9,6 +9,7 @@ mod init;
 mod status;
 
 use std::env;
+use std::process::ExitCode;
 use std::time::Duration;
 use fork::{daemon, Fork};
 use log::{debug, error, info};
@@ -17,14 +18,38 @@ use crate::init::init;
 use crate::sms_utils::OutgoingSms;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() {
+async fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
-    if args.contains(&"--daemon".to_string()) {
-        if let Ok(Fork::Child) = daemon(false, false) {
-            run(true).await
+    let arg = args.get(1).map(|s| s.as_str());
+    match arg {
+        None => {
+            run(false).await;
+            ExitCode::SUCCESS
+        },
+        Some("--daemon") => {
+            if let Ok(Fork::Child) = daemon(false, false) {
+                run(true).await;
+            }
+            ExitCode::SUCCESS
+        },
+        Some("--check-config") => {
+            if let Some(path) = args.get(2){
+                if let Ok(_) = init::read_config_file(path){
+                    println!("Valid configuration");
+                    ExitCode::SUCCESS
+                }else{
+                    println!("Invalid configuration");
+                    ExitCode::FAILURE
+                }
+            }else{
+                println!("No configuration provided");
+                ExitCode::FAILURE
+            }
+        },
+        _ => {
+            println!("invalid input arguments");
+            ExitCode::FAILURE
         }
-    } else {
-        run(false).await
     }
 }
 
