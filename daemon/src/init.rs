@@ -120,7 +120,7 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
     };
 
     let context = Context::new(configuration, status);
-    info!("init - initialization done");
+    info!("init - initialization success");
     Ok(context)
 }
 

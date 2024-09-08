@@ -20,6 +20,8 @@ fork = "0.2"
 humantime = "2.1.0"
 gsm7 = "0.3.0"
 hex = "0.4"
+serial2-tokio = "0.1"
+serial2 = "0.2"
 
 [profile.release]
 lto = "fat"

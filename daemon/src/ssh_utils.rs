@@ -22,6 +22,8 @@ pub struct SshConfig {
     pub service_host: String,
     pub tunnel_input_port: i32,
     pub tunnel_setup_timeout_sec: u64,
+    pub tunnel_timeout_sec: u64,
+    pub tunnel_refresh_period_sec: u64,
 }
 
 ///SSH tunneling is done through dropbear pre-installed binary on host,

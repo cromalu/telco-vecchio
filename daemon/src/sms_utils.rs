@@ -4,7 +4,7 @@ use hex::FromHex;
 use log::{debug, error};
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::fs::File;
+use serial2_tokio::SerialPort;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::common;
 use crate::common::Error;
@@ -18,10 +18,13 @@ pub struct SmsConfig {
 }
 
 pub async fn init(config: &SmsConfig) -> common::Result<()> {
-    let mut device_file = get_device_file(config).await.map_err(|_| SmsInitError)?;
+    let mut serial_port = open_serial_port(config).await.map_err(|e| {
+        error!("init: cannot open serial port - error: {:?}",e);
+        SmsInitError
+    })?;
     //set mode to PDU mode
     debug!("init: running AT+CMGF");
-    let response = at_transaction(&mut device_file, "AT+CMGF=0\r").await.map_err(|_| SmsInitError)?;
+    let response = at_transaction(&mut serial_port, "AT+CMGF=0\r").await.map_err(|_| SmsInitError)?;
     debug!("init: response received: {}",response);
     if !response.contains("OK") {
         error!("AT+CMGF failed - response: {}",response);
@@ -31,7 +34,7 @@ pub async fn init(config: &SmsConfig) -> common::Result<()> {
     //defines how new messages are indicated
     //first int : defines how notifications are dispatched. Value : 2 -> send notifications to the TE, buffering them and sending them later if they cannot be sent.
     //second int : defines how sms are stored. Value : 2 -> sms not stored on modem, simply forwarded on serial port
-    let response = at_transaction(&mut device_file, "AT+CNMI=2,2\r").await.map_err(|_| SmsInitError)?;
+    let response = at_transaction(&mut serial_port, "AT+CNMI=2,2\r").await.map_err(|_| SmsInitError)?;
     debug!("init: response received: {}",response);
     if !response.contains("OK") {
         error!("AT+CNMI failed - response: {}",response);
@@ -46,7 +49,7 @@ pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<(
         error!("send_sms: sms message too long");
         return Err(SmsSendingError);
     }
-    let mut device_file = get_device_file(config).await.map_err(|_| SmsSendingError)?;
+    let mut device_file = open_serial_port(config).await.map_err(|_| SmsSendingError)?;
 
     debug!("send_sms: building pdu");
     let encoded_number = encode_phone_number(&sms.to);
@@ -73,7 +76,7 @@ pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<(
 }
 
 pub async fn wait_sms(config: &SmsConfig) -> common::Result<IncomingSms> {
-    let mut device_file = get_device_file(config).await.map_err(|_| Error::SmsReadingError)?;
+    let mut device_file = open_serial_port(config).await.map_err(|_| Error::SmsReadingError)?;
 
     let re = Regex::new(r#"\+CMT:.*\r\n(.+)\r\n"#).unwrap();
     debug!("wait_sms: waiting CMT response");
@@ -116,21 +119,24 @@ pub struct OutgoingSms {
     pub msg: String,
 }
 
-async fn get_device_file(config: &SmsConfig) -> Result<File, io::Error> {
-    File::options().write(true).read(true).open(&config.modem_device).await
+async fn open_serial_port(config: &SmsConfig) -> Result<SerialPort, io::Error> {
+    SerialPort::open(&config.modem_device, serial2::KeepSettings).map_err(|e| {
+        error!("get_device_file: error: {:?}",e);
+        e
+    })
 }
 
-async fn at_transaction(device_file: &mut File, command: &str) -> Result<String, io::Error> {
+async fn at_transaction(serial_port: &mut SerialPort, command: &str) -> Result<String, io::Error> {
     if !command.is_empty() {
         debug!("at_transaction: sending command: {:?}",command);
-        device_file.write_all(command.as_bytes()).await?;
+        serial_port.write_all(command.as_bytes()).await?;
         //reading the command just sent
         let mut buffer = vec![0; command.as_bytes().len()];
-        let _ = device_file.read(&mut buffer).await?;
+        let _ = serial_port.read(&mut buffer).await?;
         debug!("at_transaction: waiting response");
     }
     let mut buffer: [u8; 128] = [0; 128];
-    let len = device_file.read(&mut buffer).await?;
+    let len = serial_port.read(&mut buffer).await?;
     String::from_utf8(buffer[0..len].to_vec()).map_err(|_| io::Error::from(io::ErrorKind::InvalidData))
 }
 
