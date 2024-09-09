@@ -45,7 +45,7 @@ return view.extend({
                     'wrap': 'off',
                     'rows': loglines.length + 1
                 }, [ loglines.join('\n') ]),
-                E('div', {'style': 'padding-bottom: 20px'}, [scrollUpButton])
+                E('div', {'style': 'padding-bottom: 20px'}, [scrollUpButton]),
             ])
         ]);
     },

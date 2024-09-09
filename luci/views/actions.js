@@ -46,10 +46,31 @@ return view.extend({
             });
         }, this);
 
-	    //binary
-        o = s.option(form.SectionValue, 'actions', form.NamedSection, 'actions', 'actions', _('Binary Management'), _('Check and update telco-vecchio binary file'));
+
+        //Restart service
+        o = s.option(form.SectionValue, 'actions', form.NamedSection, 'actions', 'actions', _('Service Management'), _('Restart service'));
         var ss = o.subsection;
-        var o = ss.option(form.Button, 'download', _('Download current binary file'), _('In case you need to check the binary'));
+        var o = ss.option(form.Button, 'restart', _('Restart Telco-Vecchio service'), _('In case new binary or configuration must be applied'));
+        o.inputtitle = _('Restart');
+        o.onclick = L.bind(function(ev) {
+            L.ui.showModal(_('Restarting…'), [
+                E('p', { 'class': 'spinning' }, _('Service is restarting'))
+            ]);
+            fs.exec('/etc/init.d/telco-vecchio', ['restart']).then(L.bind(function() {
+                ui.showModal(_('Success'), [
+                    E('p', [ _('Service restarted') ]),
+                    E('div', { 'class': 'right' }, [
+                        E('button', { 'click': ui.hideModal }, [ _('OK') ])
+                    ])]);
+            }, this)).catch(function(err) {
+                ui.addNotification(null, E('p', [ _('Service restart failed: %s').format(err.message) ]));
+            });
+        }, this);
+
+        //logs
+        o = s.option(form.SectionValue, 'actions', form.NamedSection, 'actions', 'actions', _('Log Download'), _('Download Telco-Vecchio log files'));
+        var ss = o.subsection;
+        var o = ss.option(form.Button, 'dl_logs', _(''), _(''));
         o.inputtitle = _('Download');
         o.onclick = L.bind(function(ev) {
             var form = E('form', {
@@ -58,50 +79,15 @@ return view.extend({
                 'enctype': 'application/x-www-form-urlencoded'
             }, [
                 E('input', { 'type': 'hidden', 'name': 'sessionid', 'value': rpc.getSessionID() }),
-                E('input', { 'type': 'hidden', 'name': 'path',      'value': '/usr/bin/telco-vecchio' }),
-                E('input', { 'type': 'hidden', 'name': 'filename',  'value': 'telco-vecchio'})
+                E('input', { 'type': 'hidden', 'name': 'path',      'value': '/tmp/log/telco-vecchio/log' }),
+                E('input', { 'type': 'hidden', 'name': 'filename',  'value': 'log'})
             ]);
             ev.currentTarget.parentNode.appendChild(form);
             form.submit();
             form.parentNode.removeChild(form);
         }, this);
-        var o = ss.option(form.Button, 'upload', _('Upload a new binary file'), _('In case you need to change the binary'));
-        o.inputtitle = _('Upload');
-        o.onclick = L.bind(function(ev) {
-            return ui.uploadFile('/usr/bin/telco-vecchio',ev).then(function() {
-                ui.showModal(_('Success'), [
-                    E('p', [ _('Binary file uploaded successfuly') ]),
-                    E('div', { 'class': 'right' }, [
-                        E('button', { 'click': ui.hideModal }, [ _('OK') ])
-                    ])]);
-            }).catch(function(err) {
-                ui.addNotification(null, E('p', [ _('Binary file upload failed: %s').format(err.message) ]));
-            });
-        }, this);
-
-	//Restart service
-	o = s.option(form.SectionValue, 'actions', form.NamedSection, 'actions', 'actions', _('Service Management'), _('Restart service'));
-	var ss = o.subsection;
-	var o = ss.option(form.Button, 'restart', _('Restart Telco-Vecchio service'), _('In case new binary or configuration must be applied'));
-	o.inputtitle = _('Restart');
-	o.onclick = L.bind(function(ev) {
-        L.ui.showModal(_('Restarting…'), [
-            E('p', { 'class': 'spinning' }, _('Service is restarting'))
-        ]);
-		fs.exec('/etc/init.d/telco-vecchio', ['restart']).then(L.bind(function() {
-		       ui.showModal(_('Success'), [
-		               E('p', [ _('Service restarted') ]),
-		               E('div', { 'class': 'right' }, [
-		                   E('button', { 'click': ui.hideModal }, [ _('OK') ])
-                       ])]);
-		}, this)).catch(function(err) {
-                	ui.addNotification(null, E('p', [ _('Service restart failed: %s').format(err.message) ]));
-            	});
-		
-       }, this);
-
-
 
         return m.render();
     }
 });
+
