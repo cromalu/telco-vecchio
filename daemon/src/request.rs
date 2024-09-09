@@ -30,6 +30,8 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
         "open" => {
             info!("handle_request - opening tunnel");
 
+
+
             //reading application to open the tunnel
             let application_str = args.next().ok_or_else(|| {
                 error!("handle_request - no application specified");
@@ -60,10 +62,22 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                     Err(e)
                 })?;
             if !matches!(context.status.applications_status.get(application_str).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
-                error!("init - cannot open tunnel: application {} is not reachable",application_str);
+                error!("handle_request - cannot open tunnel: application {} is not reachable",application_str);
                 return Err(Error::InvalidStatus(format!("Application {} is not reachable",context.status.device_status)));
             }
             info!("handle_request - opening tunnel to application : {}",application.name);
+
+            //checking if tunnel max number is reached
+            if let Some(max) = context.configuration.ssh_config.tunnel_max_number{
+                if context.tunnels.len() >= max as usize {
+                    error!("handle_request - the maximum tunnel number allowed is reached");
+                    let mut s = "The maximum tunnel number allowed is reached".to_string();
+                    if let Some(tunnel) = context.tunnels.values().max_by(|a,b|{a.creation_date.cmp(&b.creation_date)}){
+                        s.push_str(format!(" - last tunnel open by {}",tunnel.user).as_str())
+                    }
+                    return Err(Error::InvalidStatus(s));
+                }
+            }
 
             if let Some((tunnel_ref,_)) = context.tunnels.iter().find(|(_, tunnel)| {
                 tunnel.user == user.name && tunnel.application == application.name
