@@ -5,7 +5,6 @@ use crate::{common, Context, email_utils, init, ssh_utils};
 use crate::common::{Error, Tunnel};
 use crate::email_utils::OutgoingEmail;
 use crate::status::{DeviceStatus, get_status, ServiceStatus};
-use crate::status::InvalidStatusKind::{ApplicationNotAvailable, EmailServiceUnreachable, InvalidDeviceStatus, SshTunnelServiceUnreachable};
 
 
 ///Returns the message to be returned to the request sender as acknowledgement
@@ -42,15 +41,15 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
             //checking if the current status allows tunnel opening
             if !matches!(context.status.device_status,DeviceStatus::Ready) {
                 error!("handle_request - cannot open tunnel: device status: {:?}",context.status.device_status);
-                return Err(Error::InvalidStatus(InvalidDeviceStatus(context.status.device_status.clone())));
+                return Err(Error::InvalidStatus(format!("Device is not ready - current state is {}",context.status.device_status)));
             }
             if !matches!(context.status.email_service_status,ServiceStatus::Reachable) {
                 error!("handle_request - cannot open tunnel: email service is not reachable");
-                return Err(Error::InvalidStatus(EmailServiceUnreachable));
+                return Err(Error::InvalidStatus(format!("Email service is not reachable")));
             }
             if !matches!(context.status.ssh_tunnel_service_status,ServiceStatus::Reachable) {
                 error!("handle_request - cannot open tunnel: ssh tunnel service is not reachable");
-                return Err(Error::InvalidStatus(SshTunnelServiceUnreachable));
+                return Err(Error::InvalidStatus(format!("SSH tunnel service is not reachable")));
             }
 
             //resolve application
@@ -62,7 +61,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                 })?;
             if !matches!(context.status.applications_status.get(application_str).unwrap_or(&ServiceStatus::Unreachable),ServiceStatus::Reachable) {
                 error!("init - cannot open tunnel: application {} is not reachable",application_str);
-                return Err(Error::InvalidStatus(ApplicationNotAvailable(application_str.to_string())));
+                return Err(Error::InvalidStatus(format!("Application {} is not reachable",context.status.device_status)));
             }
             info!("handle_request - opening tunnel to application : {}",application.name);
 
@@ -70,7 +69,7 @@ pub async fn handle_request(sender: &str, request: &str, context: &mut Context) 
                 tunnel.user == user.name && tunnel.application == application.name
             }){
                 error!("handle_request - a tunnel is already open by the user for this application");
-                return Err(Error::AlreadyOpenTunnel(*tunnel_ref));
+                return Err(Error::InvalidRequestError(format!("A tunnel is already open for this application: {}",*tunnel_ref)));
             }
 
             //open ssh tunnel towards this app

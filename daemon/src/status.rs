@@ -39,14 +39,6 @@ pub enum DeviceStatus {
     Ready,
 }
 
-#[derive(Debug)]
-pub enum InvalidStatusKind {
-    InvalidDeviceStatus(DeviceStatus),
-    EmailServiceUnreachable,
-    SshTunnelServiceUnreachable,
-    ApplicationNotAvailable(String),
-}
-
 pub async fn get_status(configuration: &Configuration) -> common::Result<Status> {
 
     //device internal status
@@ -228,11 +220,13 @@ impl QmiProvider{
 
 impl Display for Status {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Device: {}\n", self.device_status.to_string())?;
-        write!(f, "Email service: {}\n", self.email_service_status.to_string())?;
-        write!(f, "Ssh tunnel service: {}\n", self.ssh_tunnel_service_status.to_string())?;
+        write!(f, "[Device]\n{}\n", self.device_status.to_string())?;
+        write!(f, "[Services]\n")?;
+        write!(f, "Email: {}\n", self.email_service_status.to_string())?;
+        write!(f, "Ssh Tunnel: {}\n", self.ssh_tunnel_service_status.to_string())?;
+        write!(f, "[Applications]\n")?;
         for app in self.applications_status.iter() {
-            write!(f, "- {}: {}\n", app.0, app.1.to_string())?;
+            write!(f, "{}: {}\n", app.0, app.1.to_string())?;
         }
         Ok(())
     }

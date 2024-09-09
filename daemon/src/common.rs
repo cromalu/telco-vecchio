@@ -12,7 +12,7 @@ use crate::init::InitConfig;
 use crate::sms_utils;
 use crate::sms_utils::{OutgoingSms, SmsConfig};
 use crate::ssh_utils::SshConfig;
-use crate::status::{InvalidStatusKind, MonitoringConfig, Status};
+use crate::status::{MonitoringConfig, Status};
 use crate::user::User;
 
 #[derive(Debug)]
@@ -31,8 +31,7 @@ pub enum Error {
     InvalidRequestError(String),
     DomainNameResolutionError,
     PingError(SurgeError),
-    InvalidStatus(InvalidStatusKind),
-    AlreadyOpenTunnel(u32),
+    InvalidStatus(String),
 }
 
 impl From<io::Error> for Error {

@@ -82,11 +82,15 @@ async fn run(is_daemon: bool) {
                                         }
                                         Err(Error::InvalidRequestError(s)) => {
                                             //applicative error
-                                            Some(format!("The message you just sent is invalid : {}", s))
+                                            Some(format!("The message you sent is invalid, {}", s))
+                                        }
+                                        Err(Error::InvalidStatus(s)) => {
+                                            //applicative error
+                                            Some(format!("Your request cannot be processed, {}", s))
                                         }
                                         Err(e) => {
                                             //technical error
-                                            Some(format!("An error occurred : {:?}", e))
+                                            Some(format!("An error occurred, {:?}", e))
                                         }
                                     };
 
