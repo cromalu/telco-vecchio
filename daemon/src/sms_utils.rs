@@ -15,6 +15,9 @@ const SMS_VALIDITY_PERIOD: u8 = 1; //10 minutes
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct SmsConfig {
     pub modem_device: String,
+    pub qmi_modem_device: String,
+    pub qmi_binary_file: String,
+    pub sim_pin: String
 }
 
 pub async fn init(config: &SmsConfig) -> common::Result<()> {

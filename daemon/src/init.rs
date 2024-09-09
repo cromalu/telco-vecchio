@@ -10,7 +10,7 @@ use crate::{common, sms_utils, status};
 use crate::common::{Configuration, Context};
 use crate::common::Error::ConfigurationParsingError;
 use crate::sms_utils::OutgoingSms;
-use crate::status::DeviceStatus;
+use crate::status::{DeviceStatus, QmiProvider};
 use crate::user::User;
 
 const CONFIGURATION_FILE: &str = "/etc/telco-vecchio.conf";
@@ -72,7 +72,11 @@ pub async fn init(is_daemon : bool) -> common::Result<Context> {
             DeviceStatus::SimLocked => {
                 if !sim_unlock_performed {
                     info!("init - sim card is locked, unlocking it");
-                    //todo try pin
+                    let qmi_provider = QmiProvider {
+                        qmi_binary: configuration.sms_config.qmi_binary_file.to_string(),
+                        qmi_device: configuration.sms_config.qmi_modem_device.to_string(),
+                    };
+                    qmi_provider.verify_sim_pin(configuration.sms_config.sim_pin.as_str()).await?;
                     status = status::get_status(&configuration).await?;
                     sim_unlock_performed = true;
                 } else {

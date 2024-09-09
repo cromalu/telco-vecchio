@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::process::Stdio;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ pub struct EmailConfig {
     pub binary_file: String,
     pub sender_alias: String,
     pub server_domain: String,
+    pub internet_host: IpAddr,
 }
 
 #[derive(Debug)]

@@ -12,7 +12,7 @@ use crate::init::InitConfig;
 use crate::sms_utils;
 use crate::sms_utils::{OutgoingSms, SmsConfig};
 use crate::ssh_utils::SshConfig;
-use crate::status::{MonitoringConfig, Status};
+use crate::status::Status;
 use crate::user::User;
 
 #[derive(Debug)]
@@ -79,9 +79,7 @@ pub struct Configuration {
     pub sms_config: SmsConfig,
     pub email_config: EmailConfig,
     pub ssh_config: SshConfig,
-
     pub init_config: InitConfig,
-    pub monitoring_config: MonitoringConfig,
 }
 
 impl Context {
