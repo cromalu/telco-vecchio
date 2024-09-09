@@ -1,0 +1,14 @@
+Package: telco-vecchio
+Version: 1.0.0
+Depends: libc
+Source: feeds/packages/utils/telco-vecchio
+SourceName: telco-vecchio
+License: GPL-2.0-or-later OpenSSL
+LicenseFiles: COPYING COPYING.OpenSSL
+Section: utils
+SourceDateEpoch: 1
+CPE-ID: cpe:/a:dest-unreach:telco-vecchio
+Maintainer: Cromalu
+Architecture: mips_24kc
+Installed-Size: 1
+Description:  Telco-vecchio exposes local-network application to allowed user on the internet through ssh tunnels

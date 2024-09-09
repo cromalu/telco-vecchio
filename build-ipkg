@@ -1,0 +1,124 @@
+#!/bin/sh
+WORKING_DIR="telco-vecchio-ipk"
+DAEMON_BINARY_PATH="daemon/target/mips-unknown-linux-musl/release/daemon"
+BASE_CONTROL_FILE_PATH="control"
+DAEMON_NAME="telco-vecchio"
+BASE_INIT_SCRIPT="telco-vecchio-init"
+BASE_CONFIG="config.toml"
+ARCHIVE_NAME="telco-vecchio_1.0.0_mips_24kc.ipk"
+BASE_LUCI_VIEWS_FOLDER="luci/views"
+BASE_LUCI_ADMIN_FOLDER="luci/root"
+
+if [ -d $WORKING_DIR ]; then rm -Rf $WORKING_DIR; fi
+mkdir $WORKING_DIR;
+
+# data
+mkdir "${WORKING_DIR}/data";
+
+## binary
+mkdir -p "${WORKING_DIR}/data/usr/bin/"
+if [ -f $DAEMON_BINARY_PATH ];then
+    cp ${DAEMON_BINARY_PATH} "${WORKING_DIR}/data/usr/bin/${DAEMON_NAME}"
+else
+    echo "Daemon binary not found"
+    exit 1
+fi
+DAEMON="${WORKING_DIR}/data/usr/bin/${DAEMON_NAME}"
+
+## init script
+mkdir -p "${WORKING_DIR}/data/etc/init.d/"
+
+INIT_SCRIPT="${WORKING_DIR}/data/etc/init.d/${DAEMON_NAME}"
+if [ -f $BASE_INIT_SCRIPT ];then
+    cp ${BASE_INIT_SCRIPT} $INIT_SCRIPT
+else
+    echo "Init script not found"
+    exit 1
+fi
+chmod +x $INIT_SCRIPT
+
+## config
+CONFIG="${WORKING_DIR}/data/etc/${DAEMON_NAME}.conf"
+if [ -f $BASE_CONFIG ];then
+    cp ${BASE_CONFIG} $CONFIG
+else
+    echo "Config not found"
+    exit 1
+fi
+
+
+##luci files
+LUCI_VIEWS_FOLDER="${WORKING_DIR}/data/www/luci-static/resources/view/telco-vecchio/"
+mkdir -p $LUCI_VIEWS_FOLDER
+if [ -d $BASE_LUCI_VIEWS_FOLDER ];then
+    cp -r "${BASE_LUCI_VIEWS_FOLDER}/"* $LUCI_VIEWS_FOLDER
+else
+    echo "luci views not found"
+    exit 1
+fi
+if [ -d $BASE_LUCI_ADMIN_FOLDER ];then
+    cp -r "${BASE_LUCI_ADMIN_FOLDER}/"* "${WORKING_DIR}/data/"
+else
+    echo "luci admin files not found"
+    exit 1
+fi
+DATA_SIZE=$(du -sb "$WORKING_DIR/data"  | awk '{print $1;}')
+
+cd "${WORKING_DIR}/data"
+tar -czf "../data.tar.gz" . --owner=0 --group=0
+cd "../.."
+rm -r "${WORKING_DIR}/data"
+
+
+# control
+mkdir "${WORKING_DIR}/control";
+
+## control file
+if [ -f $BASE_CONTROL_FILE_PATH ];then
+   cp $BASE_CONTROL_FILE_PATH "${WORKING_DIR}/control/control"
+else
+    echo "Control base file not found"
+    exit 1
+fi
+CONTROL_FILE="${WORKING_DIR}/control/control"
+TIMESTAMP=$(date +%s)
+sed -i "s/^\(Installed-Size: \).*/\1${DATA_SIZE}/" $CONTROL_FILE
+sed -i "s/^\(SourceDateEpoch: \).*/\1${TIMESTAMP}/" $CONTROL_FILE
+
+## conffiles file
+CONFFILE_FILE="${WORKING_DIR}/control/conffiles"
+echo "/etc/${DAEMON_NAME}.conf" > $CONFFILE_FILE
+
+#install scripts
+POST_INSTALL_FILE="${WORKING_DIR}/control/postinst"
+echo "#!/bin/sh
+/etc/init.d/${DAEMON_NAME} enable
+/etc/init.d/${DAEMON_NAME} start
+/etc/init.d/rpcd restart
+exit 0
+"> $POST_INSTALL_FILE
+chmod +x $POST_INSTALL_FILE
+
+PRE_RM_FILE="${WORKING_DIR}/control/prerm"
+echo "#!/bin/sh
+/etc/init.d/${DAEMON_NAME} disable
+/etc/init.d/${DAEMON_NAME} stop
+/etc/init.d/rpcd restart
+exit 0
+"> $PRE_RM_FILE
+chmod +x $PRE_RM_FILE
+
+cd "${WORKING_DIR}/control"
+tar -czf "../control.tar.gz" . --owner=0 --group=0
+cd "../.."
+rm -r "${WORKING_DIR}/control"
+
+# debian-binary
+echo "2.0" > "${WORKING_DIR}/debian-binary"
+
+cd "${WORKING_DIR}"
+tar -czf "../${ARCHIVE_NAME}" * --owner=0 --group=0
+cd ".."
+
+echo "IPK package ready"
+rm -Rf $WORKING_DIR
