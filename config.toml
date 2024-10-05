@@ -25,6 +25,7 @@ modem_device = "/dev/ttyUSB2"
 qmi_modem_device = "/dev/cdc-wdm0"
 qmi_binary_file = "uqmi"
 sim_pin = ...
+sms_send_timeout_sec = 5
 
 [email_config]
 binary_file = "sendmail"

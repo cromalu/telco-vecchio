@@ -1,4 +1,5 @@
 use std::io;
+use std::time::Duration;
 use gsm7::{Gsm7Reader, Gsm7Writer};
 use hex::FromHex;
 use log::{debug, error};
@@ -17,7 +18,8 @@ pub struct SmsConfig {
     pub modem_device: String,
     pub qmi_modem_device: String,
     pub qmi_binary_file: String,
-    pub sim_pin: String
+    pub sim_pin: String,
+    pub sms_send_timeout_sec: u64,
 }
 
 pub async fn init(config: &SmsConfig) -> common::Result<()> {
@@ -48,34 +50,38 @@ pub async fn init(config: &SmsConfig) -> common::Result<()> {
 }
 
 pub async fn send_sms(config: &SmsConfig, sms: &OutgoingSms) -> common::Result<()> {
-    if sms.msg.len() > 140 {
-        error!("send_sms: sms message too long");
-        return Err(SmsSendingError);
-    }
-    let mut device_file = open_serial_port(config).await.map_err(|_| SmsSendingError)?;
+    tokio::time::timeout(Duration::from_secs(config.sms_send_timeout_sec),
+                         async {
+                             if sms.msg.len() > 140 {
+                                 error!("send_sms: sms message too long");
+                                 return Err(SmsSendingError);
+                             }
+                             let mut device_file = open_serial_port(config).await.map_err(|_| SmsSendingError)?;
 
-    debug!("send_sms: building pdu");
-    let encoded_number = encode_phone_number(&sms.to);
-    let encoded_message = encode_message(&sms.msg).map_err(|_| SmsSendingError)?;
-    let pdu = format!("0011000B91{}0000{:02X?}{:02X?}{}\x1A", encoded_number, SMS_VALIDITY_PERIOD, sms.msg.len() as u8, encoded_message); //len is specified in terms of septets
-    debug!("send_sms : pdu built: {}",pdu);
+                             debug!("send_sms: building pdu");
+                             let encoded_number = encode_phone_number(&sms.to);
+                             let encoded_message = encode_message(&sms.msg).map_err(|_| SmsSendingError)?;
+                             let pdu = format!("0011000B91{}0000{:02X?}{:02X?}{}\x1A", encoded_number, SMS_VALIDITY_PERIOD, sms.msg.len() as u8, encoded_message); //len is specified in terms of septets
+                             debug!("send_sms : pdu built: {}",pdu);
 
-    debug!("send_sms: running AT+CMGS");
-    let response = at_transaction(&mut device_file, format!("AT+CMGS={}\r", (pdu.len() - 2) / 2).as_str()).await.map_err(|_| SmsSendingError)?;
-    debug!("send_sms: response received: {}",response);
-    if !response.contains(">") {
-        error!("AT+CMGS initiation failed - response: {}",response);
-        return Err(SmsSendingError);
-    }
-    error!("AT+CMGS initiation success - sending command");
-    let response = at_transaction(&mut device_file, pdu.as_str()).await.map_err(|_| SmsSendingError)?;
-    debug!("send_sms: response received: {}",response);
-    if !response.contains("OK") {
-        error!("AT+CMGS command failed - response: {}",response);
-        return Err(SmsSendingError);
-    }
-    debug!("send_sms: sms sent");
-    Ok(())
+                             debug!("send_sms: running AT+CMGS");
+                             let response = at_transaction(&mut device_file, format!("AT+CMGS={}\r", (pdu.len() - 2) / 2).as_str()).await.map_err(|_| SmsSendingError)?;
+                             debug!("send_sms: response received: {}",response);
+                             if !response.contains(">") {
+                                 error!("AT+CMGS initiation failed - response: {}",response);
+                                 return Err(SmsSendingError);
+                             }
+                             debug!("AT+CMGS initiation success - sending command");
+                             let response = at_transaction(&mut device_file, pdu.as_str()).await.map_err(|_| SmsSendingError)?;
+                             debug!("send_sms: response received: {}",response);
+                             if !response.contains("OK") {
+                                 error!("AT+CMGS command failed - response: {}",response);
+                                 return Err(SmsSendingError);
+                             }
+                             debug!("send_sms: sms sent");
+                             Ok(())
+                         }).await
+        .unwrap_or(Err(SmsSendingError))
 }
 
 pub async fn wait_sms(config: &SmsConfig) -> common::Result<IncomingSms> {
@@ -136,11 +142,11 @@ async fn at_transaction(serial_port: &mut SerialPort, command: &str) -> Result<S
 
         //reading the command just sent
         let mut buffer = vec![0; command.as_bytes().len()];
-        loop{
+        loop {
             let l = serial_port.read(&mut buffer).await?;
             buffer = buffer[l..].to_vec();
             if buffer.len() == 0 {
-                break
+                break;
             }
         }
 
