@@ -19,7 +19,7 @@ const LOG_DIRECTORY: &str = "/tmp/log/telco-vecchio";
 const LOG_FILE: &str = "log";
 const INIT_LISTENER_REGISTER: &str = "init-listener-register";
 
-const LOG_FILE_MAX_SIZE: u64 = 500000;
+const LOG_FILE_MAX_SIZE: u64 = 10000;
 const MAX_LOG_FILES: usize = 2;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
