@@ -32,6 +32,8 @@ binary_file = "sendmail"
 sender_alias = "Telco-Vecchio"
 server_domain = ...
 internet_host = "8.8.8.8"
+email_send_timeout_sec = 10
+
 
 [ssh_config]
 binary_file = "ssh"
