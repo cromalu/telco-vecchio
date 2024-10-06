@@ -5,7 +5,7 @@ BASE_CONTROL_FILE_PATH="control"
 DAEMON_NAME="telco-vecchio"
 BASE_INIT_SCRIPT="telco-vecchio-init"
 BASE_CONFIG="config.toml"
-ARCHIVE_NAME="telco-vecchio_1.0.0_mips_24kc.ipk"
+ARCHIVE_NAME="telco-vecchio_1.0.1_mips_24kc.ipk"
 BASE_LUCI_VIEWS_FOLDER="luci/views"
 BASE_LUCI_ADMIN_FOLDER="luci/root"
 

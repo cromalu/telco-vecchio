@@ -1,5 +1,5 @@
 Package: telco-vecchio
-Version: 1.0.0
+Version: 1.0.1
 Depends: libc
 Source: feeds/packages/utils/telco-vecchio
 SourceName: telco-vecchio
