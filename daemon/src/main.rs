@@ -25,27 +25,27 @@ async fn main() -> ExitCode {
         None => {
             run(false).await;
             ExitCode::SUCCESS
-        },
+        }
         Some("--daemon") => {
             if let Ok(Fork::Child) = daemon(false, false) {
                 run(true).await;
             }
             ExitCode::SUCCESS
-        },
+        }
         Some("--check-config") => {
-            if let Some(path) = args.get(2){
-                if let Ok(_) = init::read_config_file(path){
+            if let Some(path) = args.get(2) {
+                if let Ok(_) = init::read_config_file(path) {
                     println!("Valid configuration");
                     ExitCode::SUCCESS
-                }else{
+                } else {
                     println!("Invalid configuration");
                     ExitCode::FAILURE
                 }
-            }else{
+            } else {
                 println!("No configuration provided");
                 ExitCode::FAILURE
             }
-        },
+        }
         _ => {
             println!("invalid input arguments");
             ExitCode::FAILURE
@@ -60,14 +60,24 @@ async fn run(is_daemon: bool) {
                 loop {
                     debug!("waiting for SMS....");
                     let tunnel_refresh_duration = Duration::from_secs(context.configuration.ssh_config.tunnel_refresh_period_sec);
-                    let wait_result = tokio::time::timeout(tunnel_refresh_duration,sms_utils::wait_sms(&context.configuration.sms_config)).await;
+                    let wait_result = tokio::time::timeout(tunnel_refresh_duration, sms_utils::wait_sms(&context.configuration.sms_config)).await;
                     debug!("SMS waiting interrupted...");
                     match wait_result {
                         Err(_) => {
-                            debug!("Tunnel refresh required");
+                            debug!("Periodic routines");
+
+                            debug!("Internet ping...");
+                            //pinging internet in order to renew dhcp lease if required
+                            let res = surge_ping::ping(context.configuration.email_config.internet_host, &[0; 8]).await;
+                            debug!("Internet ping result: {:?}", res);
+
+
+                            debug!("Tunnel refresh...");
                             context.clean_up_expired_tunnels().await;
                             debug!("Tunnels refreshing done");
-                        },
+
+                            debug!("Periodic routines done");
+                        }
                         Ok(sms_reception_result) => {
                             debug!("New SMS received");
                             match sms_reception_result {
@@ -115,7 +125,6 @@ async fn run(is_daemon: bool) {
                             }
                         }
                     }
-
                 }
             }
             Err(e) => {
