@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::process::Stdio;
+use std::time::Duration;
 use log::{debug, error, info};
 use tinyjson::JsonValue;
 use tokio::process::Command;
@@ -122,7 +123,7 @@ async fn get_device_status(configuration: &Configuration) -> common::Result<Devi
 
     //check internet access
     info!("get_device_status - checking internet connection status...");
-    if !qmi_provider.is_connected_to_internet(configuration.email_config.internet_host).await {
+    if !QmiProvider::is_connected_to_internet(configuration.email_config.internet_host).await {
         info!("get_device_status - device not connected to internet");
         return Ok(DeviceStatus::InternetUnreachable);
     }
@@ -137,18 +138,29 @@ pub struct QmiProvider {
 }
 
 impl QmiProvider {
-    async fn is_connected_to_internet(&self, ip_addr: IpAddr) -> bool {
+    pub async fn is_connected_to_internet(ip_addr: IpAddr) -> bool {
         debug!("is_connected_to_internet - pinging: {:?} ...",ip_addr);
-        match surge_ping::ping(ip_addr, &[0; 8]).await {
-            Ok((_, duration)) => {
-                debug!("is_connected_to_internet - internet ping ok - duration: {:?}",duration);
-                true
+        let mut i = 0;
+        let res = loop{
+            match surge_ping::ping(ip_addr, &[0; 8]).await {
+                Ok((_, duration)) => {
+                    debug!("is_connected_to_internet - internet ping ok - duration: {:?}",duration);
+                    break true;
+                }
+                Err(e) => {
+                    error!("is_connected_to_internet - cannot ping internet: {:?}",e);
+                    i = i +1;
+                    if i > 3 {
+                        error!("is_connected_to_internet - too many errors - considering internet is not available");
+                        break false;
+                    }else{
+                        debug!("is_connected_to_internet - retrying...");
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                    }
+                }
             }
-            Err(e) => {
-                error!("is_connected_to_internet - cannot ping internet: {:?}",e);
-                false
-            }
-        }
+        };
+        res
     }
 
     async fn is_connected_to_lte(&self) -> common::Result<bool> {
