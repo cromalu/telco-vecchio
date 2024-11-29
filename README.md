@@ -112,6 +112,19 @@ reverse ssh tunnel can be manually set up with the following command
 Ssh tunnel configuration requires the IP addresses of the local services to be static,  
 in case you cannot define a DHCP configuration relying on their hosts MAC addresses, you can configure their hosts to use static addresses.
 
+### Cron tasks
+
+In order to prevent issues such as memory leak or performance degradation daily reboot can be scheduled:
+
+```0 2 * * * sleep 70 && touch /etc/banner && reboot```
+
+It has also been observed that the modem of the router may restart on its own and lose its configuration, 
+thus, as a quick fix, AT command requesting for SMS direct forward on serial port can be scheduled to be issued
+every hour :
+
+```0 * * * * gl_modem -B 1-1 AT /dev/ttyUSB2 AT+CNMI=2,2```
+
+
 ## Telco-vecchio package build and installation
 
 ### Telco-vecchio daemon build
